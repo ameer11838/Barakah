@@ -1,9 +1,9 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MapView, Marker } from '@/components/NativeMap';
 import { StatusChip } from '@/components/ui/Chips';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
