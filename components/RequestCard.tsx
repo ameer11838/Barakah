@@ -1,0 +1,79 @@
+import { Link } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { StatusChip } from '@/components/ui/Chips';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { colors, fonts } from '@/constants/theme';
+import {
+  categoryEmoji,
+  categoryLabel,
+  requestSnippet,
+  statusLabel,
+  statusTone,
+} from '@/lib/format';
+import type { HelpRequest } from '@/types/barakah';
+
+export function RequestCard({
+  request,
+  onPress,
+}: {
+  request: HelpRequest;
+  onPress?: () => void;
+}) {
+  const body = (
+    <GlassCard>
+      <View style={styles.row}>
+        <Text style={styles.emoji}>{categoryEmoji[request.category]}</Text>
+        <View style={{ flex: 1 }}>
+          <View style={styles.top}>
+            <Text style={styles.category}>{categoryLabel(request.category)}</Text>
+            <StatusChip label={statusLabel(request.status)} tone={statusTone(request.status)} />
+          </View>
+          <Text style={styles.snippet}>{requestSnippet(request)}</Text>
+          <Text style={styles.meta}>
+            {request.locationText} · {request.timeWindow}
+          </Text>
+          {request.aiMatchReason ? (
+            <Text style={styles.reason}>{request.aiMatchReason}</Text>
+          ) : null}
+        </View>
+      </View>
+    </GlassCard>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={({ pressed }) => pressed && { opacity: 0.92 }}>
+        {body}
+      </Pressable>
+    );
+  }
+
+  return (
+    <Link href={`/request/${request.id}`} asChild>
+      <Pressable style={({ pressed }) => pressed && { opacity: 0.92 }}>{body}</Pressable>
+    </Link>
+  );
+}
+
+const styles = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  emoji: { fontSize: 28, marginTop: 2 },
+  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  category: { fontFamily: fonts.semibold, fontSize: 16, color: colors.text, flex: 1 },
+  snippet: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 6,
+    lineHeight: 20,
+  },
+  meta: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted, marginTop: 8 },
+  reason: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.primaryDark,
+    marginTop: 8,
+    lineHeight: 17,
+  },
+});
