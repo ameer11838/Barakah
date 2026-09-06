@@ -5,14 +5,15 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GeometricBackdrop } from '@/components/GeometricBackdrop';
+import { Reveal, STAGGER_MS } from '@/components/motion/Reveal';
 import { Avatar, StatusChip } from '@/components/ui/Chips';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
 import { fonts, radii, type Palette, type ThemePreference } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/lib/theme';
 import { emailConfigured, emailProviderName } from '@/lib/email';
+import { nextRank, rankFor, traitsFor } from '@/lib/badges';
 import { useBarakahStore } from '@/store/barakahStore';
-import { BADGE_LABELS } from '@/types/barakah';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -23,6 +24,15 @@ export default function ProfileScreen() {
   const updateProfile = useBarakahStore((s) => s.updateProfile);
   const useDeviceLocation = useBarakahStore((s) => s.useDeviceLocation);
   const community = useBarakahStore((s) => s.community);
+  const users = useBarakahStore((s) => s.users);
+  const requests = useBarakahStore((s) => s.requests);
+  const switchUser = useBarakahStore((s) => s.switchUser);
+  const autoAcceptEnabled = useBarakahStore((s) => s.autoAcceptEnabled);
+  const setAutoAccept = useBarakahStore((s) => s.setAutoAccept);
+
+  const rank = rankFor(user.completedHelps);
+  const upcoming = nextRank(user.completedHelps);
+  const traits = traitsFor(user, requests);
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user.name);
@@ -142,16 +152,98 @@ export default function ProfileScreen() {
         </GlassCard>
 
         <GlassCard>
-          <Text style={styles.section}>Badges</Text>
-          <View style={styles.badges}>
-            {user.badges.length ? (
-              user.badges.map((b) => (
-                <StatusChip key={b} label={BADGE_LABELS[b] ?? b} tone="success" />
-              ))
-            ) : (
-              <Text style={styles.meta}>Complete one help to get a badge.</Text>
-            )}
+          <Text style={styles.section}>Standing</Text>
+          {rank ? (
+            <View style={styles.rankRow}>
+              <View style={styles.rankBadge}>
+                <Ionicons name={rank.icon} size={20} color={c.onPrimary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rankLabel}>{rank.label}</Text>
+                <Text style={styles.meta}>{rank.hint}</Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.meta}>
+              No title yet. Complete one help to become a First Answer.
+            </Text>
+          )}
+          {upcoming ? (
+            <Text style={styles.progress}>
+              {upcoming.remaining} more {upcoming.remaining === 1 ? 'help' : 'helps'} to{' '}
+              {upcoming.rank.label}
+            </Text>
+          ) : null}
+
+          <Text style={[styles.section, { marginTop: 18 }]}>What you have done</Text>
+          {traits.length ? (
+            <View style={styles.traits}>
+              {traits.map((t, i) => (
+                <Reveal key={t.id} delay={i * 40} distance={8} style={styles.trait}>
+                  <Ionicons name={t.icon} size={14} color={c.primaryDark} />
+                  <Text style={styles.traitLabel}>{t.label}</Text>
+                </Reveal>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.meta}>
+              Traits appear as you help — one for each kind of help you take on.
+            </Text>
+          )}
+        </GlassCard>
+
+        <GlassCard>
+          <Text style={styles.section}>Demo: view as</Text>
+          <Text style={styles.meta}>
+            Barakah is a two-sided exchange. Switch person to send a request as one
+            neighbour and accept it as another.
+          </Text>
+          <View style={styles.personas}>
+            {users.map((u) => {
+              const active = u.id === user.id;
+              return (
+                <Pressable
+                  key={u.id}
+                  onPress={() => switchUser(u.id)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  style={[styles.persona, active && styles.personaOn]}>
+                  <Avatar name={u.name} color={u.avatarColor} size={30} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.personaName, active && styles.personaNameOn]}>
+                      {u.name}
+                    </Text>
+                    <Text style={[styles.personaMeta, active && styles.personaMetaOn]}>
+                      Tier {u.trustTier} · {u.categoriesOffered.length} categories
+                    </Text>
+                  </View>
+                  {active ? (
+                    <Ionicons name="checkmark-circle" size={18} color={c.onPrimary} />
+                  ) : null}
+                </Pressable>
+              );
+            })}
           </View>
+
+          <Pressable
+            onPress={() => setAutoAccept(!autoAcceptEnabled)}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: autoAcceptEnabled }}
+            style={styles.autoRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.navLabel}>Auto-accept helper</Text>
+              <Text style={styles.meta}>
+                {autoAcceptEnabled
+                  ? 'A helper accepts on a timer. Good for a solo run-through.'
+                  : 'Off — accept requests yourself from Activity → Incoming.'}
+              </Text>
+            </View>
+            <Ionicons
+              name={autoAcceptEnabled ? 'toggle' : 'toggle-outline'}
+              size={30}
+              color={autoAcceptEnabled ? c.primary : c.textMuted}
+            />
+          </Pressable>
         </GlassCard>
 
         <GlassCard>
@@ -280,7 +372,51 @@ const makeStyles = (c: Palette) =>
     statValue: { fontFamily: fonts.bold, fontSize: 18, color: c.primaryDark },
     statLabel: { fontFamily: fonts.medium, fontSize: 11, color: c.textSecondary, marginTop: 2 },
     section: { fontFamily: fonts.bold, fontSize: 16, color: c.text, marginBottom: 4 },
-    badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+    rankRow: { flexDirection: 'row', gap: 12, alignItems: 'center', marginTop: 10 },
+    rankBadge: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: c.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    rankLabel: { fontFamily: fonts.bold, fontSize: 17, color: c.text },
+    progress: { fontFamily: fonts.medium, fontSize: 12, color: c.primaryDark, marginTop: 10 },
+    traits: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+    trait: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+      borderRadius: radii.pill,
+      backgroundColor: c.primarySoft,
+    },
+    traitLabel: { fontFamily: fonts.semibold, fontSize: 12, color: c.primaryDark },
+    personas: { gap: 8, marginTop: 12 },
+    persona: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      padding: 10,
+      borderRadius: radii.md,
+      backgroundColor: c.overlay,
+    },
+    personaOn: { backgroundColor: c.primary },
+    personaName: { fontFamily: fonts.semibold, fontSize: 14, color: c.text },
+    personaNameOn: { color: c.onPrimary },
+    personaMeta: { fontFamily: fonts.medium, fontSize: 11, color: c.textMuted },
+    personaMetaOn: { color: c.onPrimary, opacity: 0.85 },
+    autoRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginTop: 16,
+      paddingTop: 14,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.borderSubtle,
+    },
     navRow: {
       flexDirection: 'row',
       alignItems: 'center',

@@ -6,21 +6,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Circle, MapView, Marker } from '@/components/NativeMap';
 import { Reveal, STAGGER_MS } from '@/components/motion/Reveal';
-import { PlaceMapPin, RequestMapPin } from '@/components/RequestMapPin';
+import {
+  PIN_ANCHOR,
+  PlaceMapPin,
+  PulseMarkerView,
+  RequestMapPin,
+} from '@/components/RequestMapPin';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { StatusChip } from '@/components/ui/Chips';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
 import { fonts, radii, type Palette } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/lib/theme';
-import { mapRegionFor } from '@/lib/community';
+import { COMMUNITY_RADIUS_METERS, mapRegionFor } from '@/lib/community';
 import { requestSnippet, requestTitle, statusLabel, statusTone } from '@/lib/format';
 import { useBarakahStore } from '@/store/barakahStore';
 import type { HelpRequest, LatLng } from '@/types/barakah';
 
 const SHEET_CLEARANCE = 210;
-/** Radius of the community ring drawn around the anchor. */
-const COMMUNITY_RADIUS_METERS = 900;
 /** How long the match pulse runs before the map goes quiet again. */
 const PULSE_MS = 4200;
 
@@ -117,14 +120,10 @@ export default function MapScreen() {
   // for performance. The pulse is an animation, so it needs that window held
   // open for its whole run.
   useEffect(() => {
-    if (pulseId) {
-      setTracksViewChanges(true);
-      return;
-    }
     setTracksViewChanges(true);
     const t = setTimeout(() => setTracksViewChanges(false), 600);
     return () => clearTimeout(t);
-  }, [selectedId, shownRequests.length, pulseId]);
+  }, [selectedId, shownRequests.length]);
 
   useEffect(() => {
     if (!selected || Platform.OS === 'web') return;
@@ -195,20 +194,26 @@ export default function MapScreen() {
             tracksViewChanges={tracksViewChanges}>
             <PlaceMapPin />
           </Marker>
+          {/* Drawn before the pins and given a lower zIndex so it never
+              covers the thing it is drawing attention to. */}
+          {pulsed ? (
+            <Marker
+              coordinate={pulsed.location}
+              anchor={{ x: 0.5, y: 0.5 }}
+              tracksViewChanges
+              zIndex={1}>
+              <PulseMarkerView />
+            </Marker>
+          ) : null}
           {shownRequests.map((r) => (
             <Marker
               key={r.id}
               coordinate={r.location}
-              anchor={{ x: 0.5, y: 1 }}
-              tracksViewChanges={
-                tracksViewChanges || selectedId === r.id || pulseId === r.id
-              }
+              anchor={PIN_ANCHOR}
+              zIndex={2}
+              tracksViewChanges={tracksViewChanges || selectedId === r.id}
               onPress={() => setSelectedId(r.id)}>
-              <RequestMapPin
-                category={r.category}
-                selected={selectedId === r.id}
-                pulsing={pulseId === r.id}
-              />
+              <RequestMapPin category={r.category} selected={selectedId === r.id} />
             </Marker>
           ))}
         </MapView>

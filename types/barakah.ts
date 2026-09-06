@@ -56,7 +56,6 @@ export interface User {
   ratingAvg: number | null;
   ratingCount: number;
   points: number;
-  badges: string[];
   completedHelps: number;
   responseRate: number;
   lastMatchAt: string | null;
@@ -134,12 +133,6 @@ export const CATEGORY_MIN_TIER: Record<Category, TrustTier> = {
   other: 2,
 };
 
-
-export const BADGE_LABELS: Record<string, string> = {
-  first_help: 'First help',
-  five_helps: '5 helps',
-  twenty_five: '25 helps',
-};
 
 export const POINTS_EXCLUDED: Category[] = ['childcare', 'elder_transport'];
 

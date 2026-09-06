@@ -33,12 +33,26 @@ export const DEFAULT_COMMUNITY: Community = {
   businessName: 'Neighbourhood Grocer',
 };
 
+/**
+ * How far out "the community" reaches. One constant, because the ring drawn on
+ * the map, the camera that frames it and the seeded neighbours all have to
+ * agree — when they were three separate numbers they silently disagreed, and
+ * every seeded person sat outside the ring that was supposed to contain them.
+ */
+export const COMMUNITY_RADIUS_METERS = 1600;
+
+const METERS_PER_MILE = 1609.34;
+const MILES_PER_DEGREE_LAT = 69;
+
+/** Camera framing the whole community ring, with a little air around it. */
 export function mapRegionFor(anchor: LatLng) {
-  return {
-    ...anchor,
-    latitudeDelta: 0.035,
-    longitudeDelta: 0.035,
-  };
+  const spanMiles = (COMMUNITY_RADIUS_METERS / METERS_PER_MILE) * 2.6;
+  const latitudeDelta = spanMiles / MILES_PER_DEGREE_LAT;
+  // A degree of longitude shrinks toward the poles, so the span has to be
+  // widened by 1/cos(lat) to stay square on the ground.
+  const longitudeDelta =
+    latitudeDelta / Math.max(0.2, Math.cos((anchor.latitude * Math.PI) / 180));
+  return { ...anchor, latitudeDelta, longitudeDelta };
 }
 
 /** Metres-ish offsets used to scatter seeded people around the anchor. */

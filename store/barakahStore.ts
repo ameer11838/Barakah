@@ -45,16 +45,30 @@ interface BarakahState {
   toast: Toast;
   /** Light/dark choice. Survives resetDemo — it is a preference, not demo data. */
   themePreference: ThemePreference;
+  /**
+   * When on, a plausible helper accepts on a timer so the flow can be shown
+   * single-handed. Off by default: the two-sided walkthrough — switch personas
+   * and accept as the helper — is the more honest demo, and a timer that fires
+   * first steals that moment.
+   */
+  autoAcceptEnabled: boolean;
+  /** Guards the launch-time location lookup so it runs once per app start. */
+  locatedThisSession: boolean;
 
   setHydrated: (v: boolean) => void;
   setThemePreference: (preference: ThemePreference) => void;
+  setAutoAccept: (enabled: boolean) => void;
+  /** Become another seeded person, to show the other half of the exchange. */
+  switchUser: (userId: string) => void;
+  /** Anchor on the device's real location, once per launch. */
+  autoLocate: () => Promise<void>;
   getCurrentUser: () => User;
   getUser: (id: string) => User | undefined;
   resetDemo: () => void;
   setToast: (message: string | null) => void;
 
   /** Re-anchor the whole community on the device's real location. */
-  useDeviceLocation: () => Promise<boolean>;
+  useDeviceLocation: (opts?: { silent?: boolean }) => Promise<boolean>;
   updateProfile: (patch: { name?: string; email?: string | null }) => void;
 
   toggleCategoryOffered: (category: Category) => void;
@@ -75,7 +89,6 @@ function cloneUsers(): User[] {
   return seedUsers.map((u) => ({
     ...u,
     categoriesOffered: [...u.categoriesOffered],
-    badges: [...u.badges],
   }));
 }
 
@@ -85,14 +98,6 @@ function clonePartners(): Partner[] {
 
 function cloneRequests(): HelpRequest[] {
   return seedRequests.map((r) => ({ ...r }));
-}
-
-function awardBadges(completedHelps: number, existing: string[]): string[] {
-  const next = new Set(existing);
-  if (completedHelps >= 1) next.add('first_help');
-  if (completedHelps >= 5) next.add('five_helps');
-  if (completedHelps >= 25) next.add('twenty_five');
-  return Array.from(next);
 }
 
 const autoAcceptTimers: Record<string, ReturnType<typeof setTimeout>> = {};
@@ -145,10 +150,31 @@ export const useBarakahStore = create<BarakahState>()(
         notifications: [],
         toast: null,
         themePreference: 'system',
+        autoAcceptEnabled: false,
+        locatedThisSession: false,
 
         setHydrated: (v) => set({ hydrated: v }),
 
         setThemePreference: (themePreference) => set({ themePreference }),
+
+        setAutoAccept: (autoAcceptEnabled) => set({ autoAcceptEnabled }),
+
+        switchUser: (userId) => {
+          const user = get().users.find((u) => u.id === userId);
+          if (!user) return;
+          set({
+            currentUserId: userId,
+            toast: { id: String(Date.now()), message: `Now viewing as ${user.name}` },
+          });
+        },
+
+        autoLocate: async () => {
+          if (get().locatedThisSession) return;
+          set({ locatedThisSession: true });
+          // Silent: at launch this is scene-setting, not something the user
+          // asked for, so it should not throw a toast over the first screen.
+          await get().useDeviceLocation({ silent: true });
+        },
 
         getCurrentUser: () => {
           const { users, currentUserId } = get();
@@ -168,8 +194,12 @@ export const useBarakahStore = create<BarakahState>()(
             requests: cloneRequests(),
             ratings: [],
             notifications: [],
+            locatedThisSession: false,
             toast: { id: String(Date.now()), message: 'Demo data reset' },
           });
+          // The seed is laid out around the default anchor, so re-home it on
+          // the real location again rather than leaving the demo in New Jersey.
+          void get().autoLocate();
         },
 
         setToast: (message) =>
@@ -181,15 +211,17 @@ export const useBarakahStore = create<BarakahState>()(
          * outside one neighbourhood: open it in any city and the map is
          * populated with plausible neighbours instead of being empty.
          */
-        useDeviceLocation: async () => {
+        useDeviceLocation: async ({ silent = false } = {}) => {
           const point = await currentLocation();
           if (!point) {
-            set({
-              toast: {
-                id: String(Date.now()),
-                message: 'Location permission declined. Using the default area.',
-              },
-            });
+            if (!silent) {
+              set({
+                toast: {
+                  id: String(Date.now()),
+                  message: 'Location permission declined. Using the default area.',
+                },
+              });
+            }
             return false;
           }
 
@@ -202,7 +234,9 @@ export const useBarakahStore = create<BarakahState>()(
             users: get().users.map((u) => ({ ...u, location: move(u.location) })),
             partners: get().partners.map((p) => ({ ...p, location: move(p.location) })),
             requests: get().requests.map((r) => ({ ...r, location: move(r.location) })),
-            toast: { id: String(Date.now()), message: `Community set to ${label}` },
+            ...(silent
+              ? {}
+              : { toast: { id: String(Date.now()), message: `Community set to ${label}` } }),
           });
           return true;
         },
@@ -309,7 +343,7 @@ export const useBarakahStore = create<BarakahState>()(
             id
           );
 
-          if (chosen) {
+          if (chosen && get().autoAcceptEnabled) {
             autoAcceptTimers[id] = setTimeout(() => {
               const state = get();
               const stillWaiting = state.requests.find(
@@ -339,6 +373,15 @@ export const useBarakahStore = create<BarakahState>()(
                 id
               );
             }, AUTO_ACCEPT_MS);
+          } else if (chosen) {
+            // Helpers are in range but nobody has taken it yet. It stays open
+            // on the map for a real person — switch personas and accept it.
+            set({
+              toast: {
+                id: String(Date.now()),
+                message: `Sent to ${matches.length} nearby helper${matches.length === 1 ? '' : 's'}`,
+              },
+            });
           } else {
             const partner = get().partners.find((p) => p.isEscalationPartner);
             set({
@@ -458,7 +501,6 @@ export const useBarakahStore = create<BarakahState>()(
                 ...u,
                 completedHelps,
                 points: u.points + POINTS_PER_HELP,
-                badges: awardBadges(completedHelps, u.badges),
                 isNewHelper: false,
               };
             });
@@ -588,7 +630,11 @@ export const useBarakahStore = create<BarakahState>()(
       };
     },
     {
-      name: 'barakah-demo-v2',
+      // Bumped from v2: seeded coordinates were re-scattered and the stored
+      // badge list was removed. Rehydrating v2 state would restore people at
+      // the old out-of-ring positions and silently undo that fix, so the old
+      // key is abandoned rather than migrated — it is demo data.
+      name: 'barakah-demo-v3',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({
         currentUserId: s.currentUserId,
@@ -599,6 +645,7 @@ export const useBarakahStore = create<BarakahState>()(
         ratings: s.ratings,
         notifications: s.notifications,
         themePreference: s.themePreference,
+        autoAcceptEnabled: s.autoAcceptEnabled,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);

@@ -29,6 +29,7 @@ export default function RootLayout() {
     DMSans_700Bold,
   });
   const setHydrated = useBarakahStore((s) => s.setHydrated);
+  const autoLocate = useBarakahStore((s) => s.autoLocate);
   const { palette: c } = useTheme();
 
   useEffect(() => {
@@ -47,6 +48,18 @@ export default function RootLayout() {
   useEffect(() => {
     void ensureNotificationPermission();
   }, []);
+
+  /**
+   * Anchor the community on the device at launch.
+   *
+   * This used to live only behind a button in Profile, which meant the app
+   * always opened on its hard-coded default city no matter where you were.
+   * Running it here makes "your area" true on first paint. It is guarded to
+   * fire once per launch and fails quietly if permission is refused.
+   */
+  useEffect(() => {
+    void autoLocate();
+  }, [autoLocate]);
 
   if (!loaded) return null;
 

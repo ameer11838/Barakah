@@ -2,89 +2,89 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
-  Easing,
-  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
-  withSequence,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 
 import { PulseRing } from '@/components/motion/PulseRing';
 import { type Palette } from '@/constants/theme';
-import { useTheme, useThemedStyles } from '@/lib/theme';
 import { categoryIcon } from '@/lib/format';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 import type { Category } from '@/types/barakah';
 
 /**
- * A pin that can be selected, and can announce itself.
+ * A map pin that stays where it is put.
  *
- * `pulsing` is reserved for the moment a match actually lands — it is the
- * loudest thing on the map, so it fires once per event and is switched off by
- * the caller rather than left running.
+ * The rules that keep a custom marker anchored while the map zooms:
  *
- * Note for whoever touches this next: animating a marker's contents only
- * shows up on iOS while the marker has `tracksViewChanges` on, which forces a
- * re-snapshot every frame. The map screen turns that on for the pulsing pin
- * and switches it back off when the burst ends. Leaving it on for every pin
- * is what makes react-native-maps demos stutter.
+ *   1. The container is a FIXED size. Not "whatever the children add up to",
+ *      and never adjusted by negative margins — react-native-maps positions a
+ *      marker from its measured bounds, so bounds that shift by a pixel between
+ *      renders make the pin crawl across the map as you zoom.
+ *   2. Children are absolutely positioned inside those bounds, so adding or
+ *      removing one cannot resize the container.
+ *   3. Selection changes colour and *transform scale* only. A transform does
+ *      not affect layout, so a selected pin occupies exactly the same box as an
+ *      unselected one.
+ *
+ * With the container fixed at PIN_W x PIN_H and the tip at the bottom centre,
+ * anchor={{ x: 0.5, y: 1 }} puts the tip precisely on the coordinate.
  */
+
+const BUBBLE = 38;
+const TIP_H = 9;
+export const PIN_W = 44;
+export const PIN_H = BUBBLE + TIP_H;
+
+/** Pass this to <Marker anchor={...}> so the tip sits on the coordinate. */
+export const PIN_ANCHOR = { x: 0.5, y: 1 } as const;
 
 export function RequestMapPin({
   category,
   selected = false,
-  pulsing = false,
 }: {
   category: Category;
   selected?: boolean;
-  pulsing?: boolean;
 }) {
   const { palette: c } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const lift = useSharedValue(selected ? 1 : 0);
-  const breathe = useSharedValue(0);
 
   useEffect(() => {
     lift.value = withSpring(selected ? 1 : 0, { damping: 13, stiffness: 220 });
   }, [selected, lift]);
 
-  useEffect(() => {
-    if (!pulsing) {
-      cancelAnimation(breathe);
-      breathe.value = withTiming(0, { duration: 220 });
-      return;
-    }
-    breathe.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 620, easing: Easing.inOut(Easing.quad) }),
-        withTiming(0, { duration: 620, easing: Easing.inOut(Easing.quad) })
-      ),
-      -1,
-      false
-    );
-    return () => cancelAnimation(breathe);
-  }, [pulsing, breathe]);
-
   const bubbleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + lift.value * 0.18 + breathe.value * 0.12 }],
+    transform: [{ scale: 1 + lift.value * 0.16 }],
   }));
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.bubbleSlot}>
-        {pulsing ? <PulseRing size={50} color={c.primary} /> : null}
-        <Animated.View
-          style={[styles.bubble, selected && styles.bubbleSelected, bubbleStyle]}>
-          <Ionicons
-            name={categoryIcon[category]}
-            size={selected ? 18 : 16}
-            color={c.onPrimary}
-          />
-        </Animated.View>
-      </View>
-      <View style={[styles.point, selected && styles.pointSelected]} />
+      <Animated.View style={[styles.bubble, selected && styles.bubbleSelected, bubbleStyle]}>
+        <Ionicons name={categoryIcon[category]} size={17} color={c.onPrimary} />
+      </Animated.View>
+      <View style={[styles.tip, selected && styles.tipSelected]} />
+    </View>
+  );
+}
+
+/**
+ * The match pulse, as its own decorative marker.
+ *
+ * It lives outside the pin on purpose. A marker clips to its own bounds, so a
+ * ring that expands past the pin would be sliced off — and growing the pin's
+ * box to fit the ring is exactly the kind of bounds change rule 1 forbids.
+ * Rendering it as a separate, centred, non-interactive marker keeps the pin
+ * small and stable while the ring gets all the room it needs.
+ */
+export function PulseMarkerView() {
+  const { palette: c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
+  return (
+    <View style={styles.pulseHost} pointerEvents="none">
+      <PulseRing size={56} color={c.primary} />
     </View>
   );
 }
@@ -102,29 +102,14 @@ export function PlaceMapPin() {
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
-    wrap: {
-      alignItems: 'center',
-    },
-    /**
-     * Deliberately much larger than the 40pt bubble it holds.
-     *
-     * A map marker clips to its own bounds, so a pulse ring that grows past the
-     * marker view is not "overflowing" — it is sliced off mid-animation. The
-     * slot is sized to contain the ring at full expansion (50pt * 2.3 = 115pt),
-     * and the pointer below is pulled back up by a negative margin so the pin
-     * still *looks* the same size. The slot is a constant so that starting and
-     * stopping the pulse never changes layout and jumps the pin.
-     */
-    bubbleSlot: {
-      width: 120,
-      height: 120,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
+    wrap: { width: PIN_W, height: PIN_H },
     bubble: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+      position: 'absolute',
+      top: 0,
+      left: (PIN_W - BUBBLE) / 2,
+      width: BUBBLE,
+      height: BUBBLE,
+      borderRadius: BUBBLE / 2,
       backgroundColor: c.primary,
       alignItems: 'center',
       justifyContent: 'center',
@@ -136,28 +121,26 @@ const makeStyles = (c: Palette) =>
       shadowOffset: { width: 0, height: 3 },
       elevation: 4,
     },
-    bubbleSelected: {
-      backgroundColor: c.primaryDark,
-      borderWidth: 3,
-    },
-    point: {
+    bubbleSelected: { backgroundColor: c.primaryDark },
+    tip: {
+      position: 'absolute',
+      bottom: 0,
+      left: PIN_W / 2 - 6,
       width: 0,
       height: 0,
-      // Slot is 120 tall with a 40pt bubble centred in it, so the bubble's
-      // bottom edge sits at 80. Pull the pointer up to meet it.
-      marginTop: -42,
-      borderLeftWidth: 7,
-      borderRightWidth: 7,
-      borderTopWidth: 10,
+      borderLeftWidth: 6,
+      borderRightWidth: 6,
+      borderTopWidth: TIP_H,
       borderLeftColor: 'transparent',
       borderRightColor: 'transparent',
       borderTopColor: c.primary,
     },
-    pointSelected: {
-      borderLeftWidth: 8,
-      borderRightWidth: 8,
-      borderTopWidth: 11,
-      borderTopColor: c.primaryDark,
+    tipSelected: { borderTopColor: c.primaryDark },
+    pulseHost: {
+      width: 150,
+      height: 150,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     placeBubble: {
       width: 34,
