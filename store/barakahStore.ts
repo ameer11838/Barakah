@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -54,10 +55,13 @@ interface BarakahState {
   autoAcceptEnabled: boolean;
   /** Guards the launch-time location lookup so it runs once per app start. */
   locatedThisSession: boolean;
+  /** False until the welcome screen has been seen and dismissed. */
+  hasOnboarded: boolean;
 
   setHydrated: (v: boolean) => void;
   setThemePreference: (preference: ThemePreference) => void;
   setAutoAccept: (enabled: boolean) => void;
+  completeOnboarding: () => void;
   /** Become another seeded person, to show the other half of the exchange. */
   switchUser: (userId: string) => void;
   /** Anchor on the device's real location, once per launch. */
@@ -152,12 +156,15 @@ export const useBarakahStore = create<BarakahState>()(
         themePreference: 'system',
         autoAcceptEnabled: false,
         locatedThisSession: false,
+        hasOnboarded: false,
 
         setHydrated: (v) => set({ hydrated: v }),
 
         setThemePreference: (themePreference) => set({ themePreference }),
 
         setAutoAccept: (autoAcceptEnabled) => set({ autoAcceptEnabled }),
+
+        completeOnboarding: () => set({ hasOnboarded: true }),
 
         switchUser: (userId) => {
           const user = get().users.find((u) => u.id === userId);
@@ -412,19 +419,34 @@ export const useBarakahStore = create<BarakahState>()(
           const { currentUserId, users, partners, requests } = get();
           const me = users.find((u) => u.id === currentUserId);
           const request = requests.find((r) => r.id === requestId);
-          if (!me || !request) return { ok: false, error: 'Request not found' };
+
+          /**
+           * Every refusal says so out loud.
+           *
+           * These paths used to return an error object that all three call
+           * sites discarded, so a rejected accept did nothing at all — no
+           * navigation, no message, no change. The button looked broken when
+           * it was in fact working exactly as designed, which is the worst
+           * possible failure mode for a demo.
+           */
+          const reject = (error: string) => {
+            set({ toast: { id: String(Date.now()), message: error } });
+            return { ok: false, error };
+          };
+
+          if (!me || !request) return reject('Request not found');
           if (request.requesterId === currentUserId) {
-            return { ok: false, error: "You can't accept your own request" };
+            return reject("You can't accept your own request");
           }
           if (request.status !== 'open' && request.status !== 'matching') {
-            return { ok: false, error: 'Already taken' };
+            return reject('Someone already took this one');
           }
           if (!me.categoriesOffered.includes(request.category)) {
-            return { ok: false, error: "You don't offer this category" };
+            return reject(`${me.name} doesn't offer this category`);
           }
           const minTier = CATEGORY_MIN_TIER[request.category];
           if (me.trustTier < minTier) {
-            return { ok: false, error: `Requires Tier ${minTier}` };
+            return reject(`Needs a Tier ${minTier} helper — ${me.name} is Tier ${me.trustTier}`);
           }
 
           const what = categoryTitle(request.category, request.customLabel).toLowerCase();
@@ -646,6 +668,7 @@ export const useBarakahStore = create<BarakahState>()(
         notifications: s.notifications,
         themePreference: s.themePreference,
         autoAcceptEnabled: s.autoAcceptEnabled,
+        hasOnboarded: s.hasOnboarded,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
@@ -653,3 +676,25 @@ export const useBarakahStore = create<BarakahState>()(
     }
   )
 );
+
+/**
+ * Whether the persisted state has been read back from storage yet.
+ *
+ * The welcome screen is gated on `hasOnboarded`, which starts false on every
+ * fresh JS context and only becomes true once AsyncStorage has been read.
+ * Routing on it before then would flash the welcome screen at people who
+ * finished onboarding months ago, so callers wait for this first.
+ */
+export function useStoreHydrated(): boolean {
+  const [ready, setReady] = useState(() => useBarakahStore.persist.hasHydrated());
+
+  useEffect(() => {
+    if (useBarakahStore.persist.hasHydrated()) {
+      setReady(true);
+      return;
+    }
+    return useBarakahStore.persist.onFinishHydration(() => setReady(true));
+  }, []);
+
+  return ready;
+}

@@ -289,6 +289,7 @@ export default function ProfileScreen() {
           <NavRow label="Help settings" hint="Categories & verification" href="/help-settings" />
           <NavRow label="Partners" hint="Local institutions & offers" href="/partners" />
           <NavRow label="Notifications" hint="What was sent, and how" href="/notifications" />
+          <NavRow label="Welcome screen" hint="The intro judges see first" href="/welcome" />
         </GlassCard>
 
         <PillButton label="Reset demo data" variant="ghost" onPress={resetDemo} />
@@ -304,7 +305,7 @@ function NavRow({
 }: {
   label: string;
   hint: string;
-  href: '/help-settings' | '/partners' | '/notifications';
+  href: '/help-settings' | '/partners' | '/notifications' | '/welcome';
 }) {
   const { palette: c } = useTheme();
   const styles = useThemedStyles(makeStyles);

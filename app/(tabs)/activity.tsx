@@ -10,29 +10,12 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
 import { fonts, type Palette } from '@/constants/theme';
 import { requestTitle } from '@/lib/format';
+import { blockedReason } from '@/lib/matching';
 import { useThemedStyles } from '@/lib/theme';
 import { useBarakahStore } from '@/store/barakahStore';
-import { CATEGORY_MIN_TIER, type HelpRequest, type User } from '@/types/barakah';
+
 
 type TabKey = 'incoming' | 'requests' | 'helps';
-
-/**
- * Why a request this person cannot take is still shown.
- *
- * Hiding it would make the tier system invisible — the whole point is that
- * childcare does not get offered to an unvetted neighbour, and you can only
- * see that rule working if you can see the request it is holding back.
- */
-function blockedReason(request: HelpRequest, me: User): string | null {
-  const minTier = CATEGORY_MIN_TIER[request.category];
-  if (me.trustTier < minTier) {
-    return `Needs a Tier ${minTier} helper — you are Tier ${me.trustTier}`;
-  }
-  if (!me.categoriesOffered.includes(request.category)) {
-    return 'You do not offer this category';
-  }
-  return null;
-}
 
 export default function ActivityScreen() {
   const insets = useSafeAreaInsets();

@@ -1,6 +1,14 @@
-import { StyleSheet, Text, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  type PressableProps,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
+import Animated from 'react-native-reanimated';
 
-import { PressScale } from '@/components/motion/PressScale';
+import { usePressScale } from '@/components/motion/PressScale';
 import { fonts, radii, type Palette } from '@/constants/theme';
 import { useThemedStyles } from '@/lib/theme';
 
@@ -10,28 +18,39 @@ type Props = PressableProps & {
   style?: StyleProp<ViewStyle>;
 };
 
+/**
+ * The outer Pressable carries only the caller's layout (flex, margins) and
+ * receives the touch. The pill body is a child that scales, so pressing never
+ * changes the button's footprint and touch handling stays plain React Native.
+ */
 export function PillButton({ label, variant = 'primary', style, disabled, ...rest }: Props) {
   const styles = useThemedStyles(makeStyles);
+  // Large targets need a smaller squeeze than small ones to read as equal.
+  const { animatedStyle, onPressIn, onPressOut } = usePressScale(0.975, disabled);
 
   return (
-    <PressScale
+    <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(disabled) }}
       disabled={disabled}
-      // Large targets need a smaller squeeze than small ones to read as equal.
-      scaleTo={0.975}
-      style={[
-        styles.base,
-        variant === 'primary' && styles.primary,
-        variant === 'secondary' && styles.secondary,
-        variant === 'ghost' && styles.ghost,
-        disabled ? styles.disabled : null,
-        style,
-      ]}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={style}
       {...rest}>
-      <Text style={[styles.label, variant === 'primary' ? styles.onPrimary : styles.onLight]}>
-        {label}
-      </Text>
-    </PressScale>
+      <Animated.View
+        style={[
+          styles.base,
+          variant === 'primary' && styles.primary,
+          variant === 'secondary' && styles.secondary,
+          variant === 'ghost' && styles.ghost,
+          disabled ? styles.disabled : null,
+          animatedStyle,
+        ]}>
+        <Text style={[styles.label, variant === 'primary' ? styles.onPrimary : styles.onLight]}>
+          {label}
+        </Text>
+      </Animated.View>
+    </Pressable>
   );
 }
 

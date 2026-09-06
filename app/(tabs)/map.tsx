@@ -20,6 +20,7 @@ import { fonts, radii, type Palette } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/lib/theme';
 import { COMMUNITY_RADIUS_METERS, mapRegionFor } from '@/lib/community';
 import { requestSnippet, requestTitle, statusLabel, statusTone } from '@/lib/format';
+import { blockedReason } from '@/lib/matching';
 import { useBarakahStore } from '@/store/barakahStore';
 import type { HelpRequest, LatLng } from '@/types/barakah';
 
@@ -36,8 +37,8 @@ export default function MapScreen() {
   const styles = useThemedStyles(makeStyles);
   const mapRef = useRef<MapHandle | null>(null);
   const requests = useBarakahStore((s) => s.requests);
-  const currentUserId = useBarakahStore((s) => s.currentUserId);
   const acceptRequest = useBarakahStore((s) => s.acceptRequest);
+  const me = useBarakahStore((s) => s.getCurrentUser());
   const community = useBarakahStore((s) => s.community);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pulseId, setPulseId] = useState<string | null>(null);
@@ -251,7 +252,7 @@ export default function MapScreen() {
           ) : selected ? (
             <SelectedSheet
               request={selected}
-              isMine={selected.requesterId === currentUserId}
+              blocked={blockedReason(selected, me)}
               onAccept={async () => {
                 const res = await acceptRequest(selected.id);
                 if (res.ok) router.push(`/request/${selected.id}`);
@@ -323,13 +324,14 @@ function MatchedSheet({ request, onOpen }: { request: HelpRequest; onOpen: () =>
 
 function SelectedSheet({
   request,
-  isMine,
+  blocked,
   onAccept,
   onOpen,
   onClose,
 }: {
   request: HelpRequest;
-  isMine: boolean;
+  /** Why this persona cannot take it, or null if they can. */
+  blocked: string | null;
   onAccept: () => void;
   onOpen: () => void;
   onClose: () => void;
@@ -354,19 +356,20 @@ function SelectedSheet({
       {request.aiMatchReason ? (
         <Text style={styles.reason}>Match reason: {request.aiMatchReason}</Text>
       ) : null}
+      {/* An Accept button is only shown when accepting would actually work.
+          Offering one that the store will refuse is what made this feel
+          broken after switching person. */}
+      {blocked ? <Text style={styles.blocked}>{blocked}</Text> : null}
       <View style={styles.actions}>
-        {!isMine ? <PillButton label="Accept" onPress={onAccept} style={{ flex: 1 }} /> : null}
+        {!blocked ? <PillButton label="Accept" onPress={onAccept} style={{ flex: 1 }} /> : null}
         <PillButton
-          label={isMine ? 'View' : 'Details'}
+          label="Details"
           variant="secondary"
           onPress={onOpen}
           style={{ flex: 1 }}
         />
         <PillButton label="Close" variant="ghost" onPress={onClose} />
       </View>
-      {isMine ? (
-        <Text style={styles.note}>This is your request. Track it on Activity.</Text>
-      ) : null}
     </GlassCard>
   );
 }
@@ -451,5 +454,11 @@ const makeStyles = (c: Palette) =>
       lineHeight: 18,
     },
     actions: { flexDirection: 'row', gap: 8, marginTop: 14, alignItems: 'center' },
-    note: { fontFamily: fonts.medium, fontSize: 12, color: c.textMuted, marginTop: 10 },
+    blocked: {
+      fontFamily: fonts.medium,
+      fontSize: 13,
+      color: c.warning,
+      marginTop: 12,
+      lineHeight: 18,
+    },
   });

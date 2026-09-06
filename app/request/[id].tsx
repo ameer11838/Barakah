@@ -14,6 +14,7 @@ import { PillButton } from '@/components/ui/PillButton';
 import { fonts, type Palette } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/lib/theme';
 import { formatConfidence, requestTitle, statusLabel, statusTone } from '@/lib/format';
+import { blockedReason } from '@/lib/matching';
 import { POINTS_PER_HELP, useBarakahStore } from '@/store/barakahStore';
 import { POINTS_EXCLUDED } from '@/types/barakah';
 
@@ -30,6 +31,7 @@ export default function RequestDetailScreen() {
   const submitRating = useBarakahStore((s) => s.submitRating);
   const escalateToPartner = useBarakahStore((s) => s.escalateToPartner);
   const partners = useBarakahStore((s) => s.partners);
+  const me = useBarakahStore((s) => s.getCurrentUser());
   const ratings = useBarakahStore((s) => s.ratings);
 
   const escalationPartner = partners.find((p) => p.isEscalationPartner);
@@ -64,6 +66,7 @@ export default function RequestDetailScreen() {
   }
 
   const isRequester = request.requesterId === currentUserId;
+  const blocked = blockedReason(request, me);
   const isHelper = request.matchedHelperId === currentUserId;
   const helper = request.matchedHelperId ? getUser(request.matchedHelperId) : undefined;
   const alreadyRated = ratings.some(
@@ -111,15 +114,19 @@ export default function RequestDetailScreen() {
             <Text style={styles.section}>Matching</Text>
             <Text style={styles.body}>
               {isRequester
-                ? 'Waiting for a helper nearby. In the demo, Omar usually accepts in a few seconds.'
-                : 'This request is open. Accept it if you offer this category.'}
+                ? 'Waiting for a helper nearby. Switch person in Profile to accept it from the other side, or send it to a partner.'
+                : 'This request is open.'}
             </Text>
             {!isRequester ? (
-              <PillButton
-                label="Accept request"
-                onPress={() => acceptRequest(request.id)}
-                style={{ marginTop: 12 }}
-              />
+              blocked ? (
+                <Text style={styles.warnBlocked}>{blocked}</Text>
+              ) : (
+                <PillButton
+                  label="Accept request"
+                  onPress={() => void acceptRequest(request.id)}
+                  style={{ marginTop: 12 }}
+                />
+              )
             ) : (
               <PillButton
                 label={`Send to ${escalationPartner?.name ?? "a partner"}`}
@@ -273,6 +280,13 @@ const makeStyles = (c: Palette) =>
       backgroundColor: c.primary,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    warnBlocked: {
+      fontFamily: fonts.medium,
+      fontSize: 13,
+      color: c.warning,
+      marginTop: 12,
+      lineHeight: 18,
     },
     stars: { flexDirection: 'row', gap: 8, marginTop: 10 },
     comment: {

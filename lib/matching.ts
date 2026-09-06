@@ -55,6 +55,26 @@ function buildReason(
   return `Nearest ${tier} helper for ${what}, ${dist}`;
 }
 
+/**
+ * Why this person cannot take this request, or null if they can.
+ *
+ * Shared by the map sheet and the Incoming list so both agree, and so neither
+ * ever offers an Accept button that the store will refuse. Showing the reason
+ * beats hiding the request: the tier rules are only visible if you can see
+ * them holding something back.
+ */
+export function blockedReason(request: HelpRequest, me: User): string | null {
+  if (request.requesterId === me.id) return 'This is your own request';
+  const minTier = CATEGORY_MIN_TIER[request.category];
+  if (me.trustTier < minTier) {
+    return `Needs a Tier ${minTier} helper — you are Tier ${me.trustTier}`;
+  }
+  if (!me.categoriesOffered.includes(request.category)) {
+    return 'You do not offer this category';
+  }
+  return null;
+}
+
 export function rankHelpers(
   request: HelpRequest,
   helpers: User[],

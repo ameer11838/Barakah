@@ -120,26 +120,29 @@ On a simulator that will be whatever fake location the simulator reports (often
 San Francisco); set a real one under **Features → Location → Custom Location**
 in the iOS Simulator menu.
 
-1. **Profile** — set your name. Note the persona list, and that
+1. **Welcome screen** — the first launch opens on it. It says what Barakah is
+   in three claims, then **Get started**. (Reachable again any time from
+   **Profile → Welcome screen**, so you can show it without wiping data.)
+2. **Profile** — set your name. Note the persona list, and that
    **Auto-accept helper** is off, so nothing gets accepted behind your back.
-2. **Home → Request help** — type:
+3. **Home → Request help** — type:
    > `Need a ride to Jummah tomorrow around 1pm, near the masjid`
 
    Watch the parse stream in, fields settling one at a time with a confidence
    score. Submit. It goes out to the helpers in range and waits.
-3. **Profile → Demo: view as → Omar Hassan.** You are now the neighbour on the
+4. **Profile → Demo: view as → Omar Hassan.** You are now the neighbour on the
    other end.
-4. **Activity → Incoming.** The request is there. Accept it — the requester gets
+5. **Activity → Incoming.** The request is there. Accept it — the requester gets
    a notification, the map pin pulses, and the camera eases onto it.
 
    Note the requests Omar *cannot* take, with the reason shown. Childcare and
    elder transport stay locked to Tier 3 helpers; the rule is visible, not
    hidden.
-5. **Confirm completion** as Omar, then **switch back** and confirm as the
+6. **Confirm completion** as Omar, then **switch back** and confirm as the
    requester. Points post on the second confirmation, with a short celebration.
-6. **Profile → Standing** — Omar has picked up the **Road Ready** trait and moved
+7. **Profile → Standing** — Omar has picked up the **Road Ready** trait and moved
    toward his next title.
-7. **Profile → Notifications** — every notice raised, and honestly whether it was
+8. **Profile → Notifications** — every notice raised, and honestly whether it was
    pushed, emailed, or only recorded.
 
 Turn **Auto-accept helper** on if you would rather run the short version
@@ -150,6 +153,7 @@ submit. **Profile → Reset demo data** starts over.
 
 ```
 app/                 Screens (expo-router file-based routing)
+  welcome.tsx        First-launch introduction
   (tabs)/            Home, Map, Activity, Profile
   request.tsx        Free-text request + streaming parse
   request/[id].tsx   Request detail, confirmation, rating
@@ -159,7 +163,8 @@ components/
 lib/
   mockParse.ts       Heuristic request parsing (the single source of meaning)
   streamParse.ts     Token-by-token presentation of that parse
-  matching.ts        Helper ranking + auto-accept
+  matching.ts        Helper ranking, auto-accept, and eligibility rules
+  badges.ts          Ranks and traits, derived from request records
   geocode.ts         Place lookup, device location
   notify.ts          Push + email + in-app notice, each failing independently
   email.ts           EmailJS / Resend senders

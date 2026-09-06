@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,7 +9,7 @@ import { Avatar } from '@/components/ui/Chips';
 import { PillButton } from '@/components/ui/PillButton';
 import { fonts, type Palette } from '@/constants/theme';
 import { useThemedStyles } from '@/lib/theme';
-import { useBarakahStore } from '@/store/barakahStore';
+import { useBarakahStore, useStoreHydrated } from '@/store/barakahStore';
 import { hasRealName } from '@/types/barakah';
 
 /** One primary action, then a quieter secondary path. */
@@ -18,6 +18,12 @@ export default function HomeScreen() {
   const styles = useThemedStyles(makeStyles);
   const user = useBarakahStore((s) => s.getCurrentUser());
   const named = hasRealName(user.name);
+  const hasOnboarded = useBarakahStore((s) => s.hasOnboarded);
+  const storeReady = useStoreHydrated();
+
+  // Wait for storage before routing. Deciding on the default value would send
+  // returning users back through onboarding on every cold start.
+  if (storeReady && !hasOnboarded) return <Redirect href="/welcome" />;
 
   return (
     <View style={styles.root}>

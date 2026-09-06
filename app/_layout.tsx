@@ -70,6 +70,10 @@ export default function RootLayout() {
       <StatusBar style="auto" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="welcome"
+          options={{ presentation: 'card', headerShown: false, gestureEnabled: false }}
+        />
         <Stack.Screen name="request" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="request/[id]" options={{ presentation: 'card', headerShown: false }} />
         <Stack.Screen name="partners" options={{ presentation: 'card', headerShown: false }} />
