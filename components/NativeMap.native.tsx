@@ -1,3 +1,3 @@
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Circle, Marker } from 'react-native-maps';
 
-export { MapView, Marker };
+export { Circle, MapView, Marker };

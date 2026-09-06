@@ -131,7 +131,7 @@ export const useBarakahStore = create<BarakahState>()(
           ),
           toast: {
             id: String(Date.now()),
-            message: 'ID uploaded — pending demo approval',
+            message: 'ID uploaded. Waiting on demo approval.',
           },
         });
       },
@@ -211,13 +211,13 @@ export const useBarakahStore = create<BarakahState>()(
                 ? {
                     ...r,
                     status: 'open',
-                    aiMatchReason: 'No nearby match yet — try ICPC escalate',
+                    aiMatchReason: 'No nearby match yet. Try escalating to ICPC.',
                   }
                 : r
             ),
             toast: {
               id: String(Date.now()),
-              message: 'No helper matched yet — you can escalate to ICPC',
+              message: 'No helper matched yet. You can escalate to ICPC.',
             },
           });
         }
@@ -248,7 +248,7 @@ export const useBarakahStore = create<BarakahState>()(
         const mine = matches.find((m) => m.helper.id === currentUserId);
         const reason =
           mine?.aiMatchReason ??
-          `You offer ${request.category.replace(/_/g, ' ')} nearby and meet Tier ${me.trustTier}`;
+          `You offer ${request.category.replace(/_/g, ' ')} nearby (Tier ${me.trustTier})`;
 
         set({
           requests: requests.map((r) =>
@@ -312,8 +312,8 @@ export const useBarakahStore = create<BarakahState>()(
           toast: {
             id: String(Date.now()),
             message: both
-              ? 'Help confirmed — points awarded'
-              : 'Marked complete — waiting on the other side',
+              ? 'Help confirmed. Points added.'
+              : 'Marked complete. Waiting on the other person.',
           },
         });
       },
@@ -372,13 +372,13 @@ export const useBarakahStore = create<BarakahState>()(
                   ...r,
                   status: 'matched',
                   matchedHelperId: fatima.id,
-                  aiMatchReason: 'Escalated to ICPC Tier 3 volunteer roster',
+                  aiMatchReason: 'Sent to ICPC Tier 3 volunteer roster',
                 }
               : r
           ),
           toast: {
             id: String(Date.now()),
-            message: 'Routed to ICPC — Fatima Ali assigned',
+            message: 'Sent to ICPC. Fatima Ali is assigned.',
           },
         });
       },

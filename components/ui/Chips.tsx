@@ -38,8 +38,8 @@ export function StatusChip({
       : tone === 'primary'
         ? colors.primarySoft
         : tone === 'warning'
-          ? 'rgba(216,155,44,0.16)'
-          : 'rgba(26,35,50,0.06)';
+          ? colors.warningSoft
+          : colors.overlay;
   const fg =
     tone === 'success'
       ? colors.success

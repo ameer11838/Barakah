@@ -45,6 +45,6 @@ const styles = StyleSheet.create({
   },
   ghost: { backgroundColor: 'transparent' },
   label: { fontFamily: fonts.semibold, fontSize: 16 },
-  onPrimary: { color: '#fff' },
+  onPrimary: { color: colors.onPrimary },
   onLight: { color: colors.text },
 });

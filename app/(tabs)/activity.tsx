@@ -37,7 +37,7 @@ export default function ActivityScreen() {
           gap: 12,
         }}>
         <Text style={styles.title}>Activity</Text>
-        <Text style={styles.sub}>Your asks and the helps you’ve taken on.</Text>
+        <Text style={styles.sub}>Requests you made and ones you accepted.</Text>
 
         <View style={styles.segment}>
           <Seg label="My requests" active={tab === 'requests'} onPress={() => setTab('requests')} />
@@ -47,8 +47,8 @@ export default function ActivityScreen() {
         {list.length === 0 ? (
           <Text style={styles.empty}>
             {tab === 'requests'
-              ? 'No requests yet — ask for help from Home.'
-              : 'No accepted helps yet — open the Map and take a pin.'}
+              ? 'No requests yet. Start one from Home.'
+              : 'Nothing accepted yet. Open the Map and pick a pin.'}
           </Text>
         ) : (
           list.map((r) => (
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   segBtn: { flex: 1, paddingVertical: 10, borderRadius: 999, alignItems: 'center' },
   segActive: { backgroundColor: colors.primary },
   segText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.textSecondary },
-  segTextActive: { color: '#fff' },
+  segTextActive: { color: colors.onPrimary },
   empty: {
     fontFamily: fonts.medium,
     fontSize: 14,

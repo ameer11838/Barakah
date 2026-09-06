@@ -32,15 +32,15 @@ function buildReason(helper: User, request: HelpRequest, distanceMiles: number):
   const tier = `Tier ${helper.trustTier}`;
   const cat = request.category === 'ride' ? 'rides' : request.category.replace(/_/g, ' ');
   if (helper.partnerId === 'partner-icpc') {
-    return `ICPC-vetted ${tier} volunteer who covers ${cat}, ${dist}`;
+    return `ICPC volunteer (${tier}) for ${cat}, ${dist}`;
   }
   if (helper.partnerId === 'partner-green-market') {
-    return `Partner grocer ready for food requests, ${dist}`;
+    return `Green Market partner for food, ${dist}`;
   }
   if (helper.isNewHelper) {
-    return `New ${tier} helper offering ${cat}, ${dist} and free in this window`;
+    return `New ${tier} helper for ${cat}, ${dist}`;
   }
-  return `Closest ${tier} helper who offers ${cat}, solid response rate, ${dist}`;
+  return `Nearest ${tier} helper for ${cat}, ${dist}`;
 }
 
 export function rankHelpers(

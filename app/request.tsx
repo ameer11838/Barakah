@@ -14,13 +14,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GeometricBackdrop } from '@/components/GeometricBackdrop';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
 import { colors, fonts, radii } from '@/constants/theme';
-import { categoryEmoji, categoryLabel, formatConfidence } from '@/lib/format';
+import { categoryLabel, formatConfidence } from '@/lib/format';
 import { mockParseRequest } from '@/lib/mockParse';
 import { useBarakahStore } from '@/store/barakahStore';
-import type { Category, ParsedRequest, Urgency } from '@/types/barakah';
+import type { ParsedRequest, Urgency } from '@/types/barakah';
 import { ALL_CATEGORIES } from '@/types/barakah';
 
 const CONFIDENCE_THRESHOLD = 0.6;
@@ -85,12 +86,12 @@ export default function RequestScreen() {
               value={rawText}
               onChangeText={setRawText}
               multiline
-              placeholder="e.g. Need a ride to Jummah tomorrow near ICPC…"
+              placeholder="Need a ride to Jummah tomorrow near ICPC"
               placeholderTextColor={colors.textMuted}
               style={styles.input}
             />
             <PillButton
-              label={parsing ? 'Reading…' : 'Parse with Barakah AI'}
+              label={parsing ? 'Reading...' : 'Parse with Barakah AI'}
               onPress={runParse}
               disabled={parsing || !rawText.trim()}
               style={{ marginTop: 12 }}
@@ -98,17 +99,17 @@ export default function RequestScreen() {
             {parsing ? (
               <View style={styles.parsing}>
                 <ActivityIndicator color={colors.primary} />
-                <Text style={styles.parsingText}>Barakah AI is reading your request…</Text>
+                <Text style={styles.parsingText}>Reading your request...</Text>
               </View>
             ) : null}
           </GlassCard>
 
           {parsed ? (
             <GlassCard>
-              <Text style={styles.section}>Review parsed fields</Text>
+              <Text style={styles.section}>Check the parsed fields</Text>
               <Text style={styles.meta}>
                 Confidence {formatConfidence(parsed.confidence)}
-                {manualCategory ? ' · low confidence — pick a category' : ''}
+                {manualCategory ? '. Low confidence; pick a category.' : ''}
               </Text>
 
               {(manualCategory || true) && (
@@ -122,12 +123,18 @@ export default function RequestScreen() {
                         parsed.category === cat && styles.chipOn,
                         (cat === 'childcare' || cat === 'elder_transport') && styles.chipLocked,
                       ]}>
+                      <CategoryIcon
+                        category={cat}
+                        size={14}
+                        boxed={false}
+                        color={parsed.category === cat ? colors.onPrimary : colors.primaryDark}
+                      />
                       <Text
                         style={[
                           styles.chipText,
                           parsed.category === cat && styles.chipTextOn,
                         ]}>
-                        {categoryEmoji[cat]} {categoryLabel(cat)}
+                        {categoryLabel(cat)}
                         {cat === 'childcare' || cat === 'elder_transport' ? ' · T3' : ''}
                       </Text>
                     </Pressable>
@@ -164,8 +171,8 @@ export default function RequestScreen() {
 
               {(parsed.category === 'childcare' || parsed.category === 'elder_transport') && (
                 <Text style={styles.warn}>
-                  Tier 3 / ICPC only in this MVP — you can still submit as a roadmap demo, but
-                  peer helpers won’t fulfill it.
+                  Childcare and elder transport need Tier 3 (ICPC). You can submit this for the
+                  demo, but peer helpers will not take it.
                 </Text>
               )}
 
@@ -239,15 +246,18 @@ const styles = StyleSheet.create({
   meta: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted, marginTop: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: radii.pill,
-    backgroundColor: 'rgba(26,35,50,0.06)',
+    backgroundColor: colors.overlay,
   },
   chipOn: { backgroundColor: colors.primary },
-  chipLocked: { borderWidth: 1, borderColor: 'rgba(216,155,44,0.45)' },
+  chipLocked: { borderWidth: 1, borderColor: colors.warningSoft },
   chipText: { fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary },
-  chipTextOn: { color: '#fff' },
+  chipTextOn: { color: colors.onPrimary },
   field: { marginTop: 12 },
   fieldLabel: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted },
   fieldValue: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text, marginTop: 4 },

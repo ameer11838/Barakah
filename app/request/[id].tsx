@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -5,16 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GeometricBackdrop } from '@/components/GeometricBackdrop';
 import { Avatar, StatusChip } from '@/components/ui/Chips';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
 import { colors, fonts } from '@/constants/theme';
-import {
-  categoryEmoji,
-  categoryLabel,
-  formatConfidence,
-  statusLabel,
-  statusTone,
-} from '@/lib/format';
+import { categoryLabel, formatConfidence, statusLabel, statusTone } from '@/lib/format';
 import { useBarakahStore } from '@/store/barakahStore';
 
 export default function RequestDetailScreen() {
@@ -67,7 +63,7 @@ export default function RequestDetailScreen() {
 
         <GlassCard strong>
           <View style={styles.row}>
-            <Text style={styles.emoji}>{categoryEmoji[request.category]}</Text>
+            <CategoryIcon category={request.category} size={26} />
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>{categoryLabel(request.category)}</Text>
               <StatusChip
@@ -89,8 +85,8 @@ export default function RequestDetailScreen() {
             <Text style={styles.section}>Matching</Text>
             <Text style={styles.body}>
               {isRequester
-                ? 'Looking for a nearby verified helper… Omar often accepts within a couple seconds in the demo.'
-                : 'This request is open — you can accept it if you offer this category.'}
+                ? 'Waiting for a helper nearby. In the demo, Omar usually accepts in a few seconds.'
+                : 'This request is open. Accept it if you offer this category.'}
             </Text>
             {!isRequester ? (
               <PillButton
@@ -116,14 +112,17 @@ export default function RequestDetailScreen() {
               <Avatar name={helper.name} color={helper.avatarColor} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>{helper.name}</Text>
-                <Text style={styles.meta}>
-                  Tier {helper.trustTier}
-                  {helper.isNewHelper
-                    ? ' · New helper'
-                    : helper.ratingAvg != null
-                      ? ` · ${helper.ratingAvg.toFixed(1)}★`
-                      : ''}
-                </Text>
+                <View style={styles.helperMeta}>
+                  <Text style={styles.metaInline}>Tier {helper.trustTier}</Text>
+                  {helper.isNewHelper ? (
+                    <Text style={styles.metaInline}> · New helper</Text>
+                  ) : helper.ratingAvg != null ? (
+                    <View style={styles.ratingInline}>
+                      <Text style={styles.metaInline}> · {helper.ratingAvg.toFixed(1)} </Text>
+                      <Ionicons name="star" size={12} color={colors.warning} />
+                    </View>
+                  ) : null}
+                </View>
               </View>
             </View>
             {request.aiMatchReason ? (
@@ -137,8 +136,8 @@ export default function RequestDetailScreen() {
           <GlassCard>
             <Text style={styles.section}>Completion</Text>
             <Text style={styles.body}>
-              Both sides confirm after the help happens. Points only unlock on mutual confirm
-              (not for childcare / elder transport).
+              After the help, both people confirm. Points post when both confirm (not for
+              childcare or elder transport).
             </Text>
             <Text style={styles.meta}>
               Requester: {request.requesterConfirmed ? 'confirmed' : 'pending'} · Helper:{' '}
@@ -148,7 +147,7 @@ export default function RequestDetailScreen() {
               label={
                 (isRequester && request.requesterConfirmed) ||
                 (isHelper && request.helperConfirmed)
-                  ? 'Waiting on the other side'
+                  ? 'Waiting on the other person'
                   : 'Confirm completion'
               }
               onPress={() => confirmCompletion(request.id)}
@@ -166,8 +165,12 @@ export default function RequestDetailScreen() {
             <Text style={styles.section}>Rate</Text>
             <View style={styles.stars}>
               {[1, 2, 3, 4, 5].map((n) => (
-                <Pressable key={n} onPress={() => setStars(n)}>
-                  <Text style={[styles.star, n <= stars && styles.starOn]}>★</Text>
+                <Pressable key={n} onPress={() => setStars(n)} hitSlop={6}>
+                  <Ionicons
+                    name={n <= stars ? 'star' : 'star-outline'}
+                    size={28}
+                    color={n <= stars ? colors.warning : colors.textMuted}
+                  />
                 </Pressable>
               ))}
             </View>
@@ -199,7 +202,6 @@ const styles = StyleSheet.create({
   title: { fontFamily: fonts.bold, fontSize: 28, color: colors.text, letterSpacing: -0.5 },
   close: { fontFamily: fonts.semibold, fontSize: 16, color: colors.primary },
   row: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  emoji: { fontSize: 32 },
   cardTitle: { fontFamily: fonts.bold, fontSize: 18, color: colors.text },
   body: {
     fontFamily: fonts.regular,
@@ -209,6 +211,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   meta: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted, marginTop: 8 },
+  helperMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' },
+  metaInline: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted },
+  ratingInline: { flexDirection: 'row', alignItems: 'center' },
   section: { fontFamily: fonts.bold, fontSize: 16, color: colors.text },
   reason: {
     fontFamily: fonts.medium,
@@ -218,8 +223,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   stars: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  star: { fontSize: 28, color: '#c5cdd8' },
-  starOn: { color: colors.warning },
   comment: {
     marginTop: 12,
     borderRadius: 14,

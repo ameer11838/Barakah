@@ -49,6 +49,8 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="request" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="request/[id]" options={{ presentation: 'card', headerShown: false }} />
+        <Stack.Screen name="partners" options={{ presentation: 'card', headerShown: false }} />
+        <Stack.Screen name="help-settings" options={{ presentation: 'card', headerShown: false }} />
       </Stack>
       <ToastHost />
     </View>

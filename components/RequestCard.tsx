@@ -2,15 +2,10 @@ import { Link } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { StatusChip } from '@/components/ui/Chips';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { colors, fonts } from '@/constants/theme';
-import {
-  categoryEmoji,
-  categoryLabel,
-  requestSnippet,
-  statusLabel,
-  statusTone,
-} from '@/lib/format';
+import { categoryLabel, requestSnippet, statusLabel, statusTone } from '@/lib/format';
 import type { HelpRequest } from '@/types/barakah';
 
 export function RequestCard({
@@ -23,7 +18,7 @@ export function RequestCard({
   const body = (
     <GlassCard>
       <View style={styles.row}>
-        <Text style={styles.emoji}>{categoryEmoji[request.category]}</Text>
+        <CategoryIcon category={request.category} />
         <View style={{ flex: 1 }}>
           <View style={styles.top}>
             <Text style={styles.category}>{categoryLabel(request.category)}</Text>
@@ -58,7 +53,6 @@ export function RequestCard({
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  emoji: { fontSize: 28, marginTop: 2 },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   category: { fontFamily: fonts.semibold, fontSize: 16, color: colors.text, flex: 1 },
   snippet: {

@@ -1,4 +1,6 @@
-import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GeometricBackdrop } from '@/components/GeometricBackdrop';
@@ -6,20 +8,13 @@ import { Avatar, StatusChip } from '@/components/ui/Chips';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
 import { colors, fonts } from '@/constants/theme';
-import { categoryLabel } from '@/lib/format';
 import { useBarakahStore } from '@/store/barakahStore';
-import { ALL_CATEGORIES, BADGE_LABELS, CATEGORY_MIN_TIER } from '@/types/barakah';
+import { BADGE_LABELS } from '@/types/barakah';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const user = useBarakahStore((s) => s.getCurrentUser());
-  const partners = useBarakahStore((s) => s.partners);
-  const toggleCategoryOffered = useBarakahStore((s) => s.toggleCategoryOffered);
-  const submitIdVerification = useBarakahStore((s) => s.submitIdVerification);
-  const approveVerification = useBarakahStore((s) => s.approveVerification);
   const resetDemo = useBarakahStore((s) => s.resetDemo);
-
-  const icpc = partners.find((p) => p.id === 'partner-icpc');
 
   return (
     <View style={styles.root}>
@@ -50,7 +45,7 @@ export default function ProfileScreen() {
             <Stat label="Helps" value={String(user.completedHelps)} />
             <Stat
               label="Rating"
-              value={user.ratingAvg != null ? user.ratingAvg.toFixed(1) : '—'}
+              value={user.ratingAvg != null ? user.ratingAvg.toFixed(1) : 'n/a'}
             />
           </View>
         </GlassCard>
@@ -63,60 +58,43 @@ export default function ProfileScreen() {
                 <StatusChip key={b} label={BADGE_LABELS[b] ?? b} tone="success" />
               ))
             ) : (
-              <Text style={styles.meta}>Help once to earn your first badge.</Text>
+              <Text style={styles.meta}>Complete one help to get a badge.</Text>
             )}
           </View>
         </GlassCard>
 
         <GlassCard>
-          <Text style={styles.section}>I can help with</Text>
-          {ALL_CATEGORIES.map((cat) => {
-            const locked = CATEGORY_MIN_TIER[cat] > user.trustTier;
-            const on = user.categoriesOffered.includes(cat);
-            return (
-              <View key={cat} style={styles.toggleRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.toggleLabel}>{categoryLabel(cat)}</Text>
-                  <Text style={styles.meta}>
-                    {locked
-                      ? `Needs Tier ${CATEGORY_MIN_TIER[cat]}${
-                          cat === 'childcare' || cat === 'elder_transport'
-                            ? ' · ICPC only in MVP'
-                            : ''
-                        }`
-                      : 'Available'}
-                  </Text>
-                </View>
-                <Switch
-                  value={on && !locked}
-                  disabled={locked}
-                  onValueChange={() => toggleCategoryOffered(cat)}
-                  trackColor={{ true: colors.primary, false: '#cfd6e2' }}
-                />
-              </View>
-            );
-          })}
-        </GlassCard>
-
-        <GlassCard>
-          <Text style={styles.section}>Verification</Text>
-          <Text style={styles.meta}>
-            Status: {user.verificationStatus}
-            {icpc ? ` · Partner: ${icpc.name}` : ''}
-          </Text>
-          <View style={{ gap: 8, marginTop: 12 }}>
-            <PillButton
-              label="Upload ID (demo)"
-              variant="secondary"
-              onPress={submitIdVerification}
-            />
-            <PillButton label="Approve Tier 2 (demo)" onPress={approveVerification} />
-          </View>
+          <Text style={styles.section}>More</Text>
+          <NavRow label="Help settings" hint="Categories & verification" href="/help-settings" />
+          <NavRow label="Partners" hint="ICPC & local offers" href="/partners" />
         </GlassCard>
 
         <PillButton label="Reset demo data" variant="ghost" onPress={resetDemo} />
       </ScrollView>
     </View>
+  );
+}
+
+function NavRow({
+  label,
+  hint,
+  href,
+}: {
+  label: string;
+  hint: string;
+  href: '/help-settings' | '/partners';
+}) {
+  return (
+    <Pressable
+      onPress={() => router.push(href)}
+      style={styles.navRow}
+      accessibilityRole="button">
+      <View style={{ flex: 1 }}>
+        <Text style={styles.navLabel}>{label}</Text>
+        <Text style={styles.meta}>{hint}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+    </Pressable>
   );
 }
 
@@ -145,14 +123,14 @@ const styles = StyleSheet.create({
   },
   statValue: { fontFamily: fonts.bold, fontSize: 18, color: colors.primaryDark },
   statLabel: { fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary, marginTop: 2 },
-  section: { fontFamily: fonts.bold, fontSize: 16, color: colors.text, marginBottom: 8 },
-  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  toggleRow: {
+  section: { fontFamily: fonts.bold, fontSize: 16, color: colors.text, marginBottom: 4 },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  navRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(26,35,50,0.08)',
+    borderTopColor: colors.borderSubtle,
   },
-  toggleLabel: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
+  navLabel: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
 });

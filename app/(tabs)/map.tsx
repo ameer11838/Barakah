@@ -1,30 +1,43 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MapView, Marker } from '@/components/NativeMap';
+import { Circle, MapView, Marker } from '@/components/NativeMap';
+import { PlaceMapPin, RequestMapPin } from '@/components/RequestMapPin';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { StatusChip } from '@/components/ui/Chips';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
 import { colors, fonts } from '@/constants/theme';
-import {
-  categoryEmoji,
-  categoryLabel,
-  requestSnippet,
-  statusLabel,
-  statusTone,
-} from '@/lib/format';
-import { MAP_REGION } from '@/seed/paterson-icpc';
+import { categoryLabel, requestSnippet, statusLabel, statusTone } from '@/lib/format';
+import { ICPC, MAP_REGION } from '@/seed/paterson-icpc';
 import { useBarakahStore } from '@/store/barakahStore';
 import type { HelpRequest } from '@/types/barakah';
 
+const SHEET_CLEARANCE = 210;
+const ICPC_RADIUS_METERS = 900;
+
+type MapHandle = {
+  animateToRegion: (
+    region: {
+      latitude: number;
+      longitude: number;
+      latitudeDelta: number;
+      longitudeDelta: number;
+    },
+    duration?: number
+  ) => void;
+};
+
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
+  const mapRef = useRef<MapHandle | null>(null);
   const requests = useBarakahStore((s) => s.requests);
   const currentUserId = useBarakahStore((s) => s.currentUserId);
   const acceptRequest = useBarakahStore((s) => s.acceptRequest);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [tracksViewChanges, setTracksViewChanges] = useState(true);
 
   const openRequests = useMemo(
     () => requests.filter((r) => r.status === 'open' || r.status === 'matching'),
@@ -32,36 +45,92 @@ export default function MapScreen() {
   );
   const selected = openRequests.find((r) => r.id === selectedId) ?? null;
 
+  // Custom marker views need a brief tracksViewChanges window, then freeze for perf.
+  useEffect(() => {
+    setTracksViewChanges(true);
+    const t = setTimeout(() => setTracksViewChanges(false), 600);
+    return () => clearTimeout(t);
+  }, [selectedId, openRequests.length]);
+
+  useEffect(() => {
+    if (!selected || Platform.OS === 'web') return;
+    mapRef.current?.animateToRegion(
+      {
+        latitude: selected.location.latitude - 0.004,
+        longitude: selected.location.longitude,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      },
+      280
+    );
+  }, [selectedId]);
+
   return (
     <View style={styles.root}>
       {Platform.OS === 'web' ? (
         <View style={[styles.webFallback, { paddingTop: insets.top + 16 }]}>
-          <Text style={styles.webTitle}>Map · ICPC Paterson</Text>
-          <Text style={styles.webSub}>Open needs around Derrom Ave</Text>
+          <Text style={styles.webTitle}>Map near ICPC</Text>
+          <Text style={styles.webSub}>Open requests around Derrom Ave</Text>
           {openRequests.map((r) => (
             <Pressable key={r.id} onPress={() => setSelectedId(r.id)} style={{ marginTop: 10 }}>
               <GlassCard strong={selectedId === r.id}>
-                <Text style={styles.pinTitle}>
-                  {categoryEmoji[r.category]} {categoryLabel(r.category)}
-                </Text>
+                <View style={styles.pinRow}>
+                  <CategoryIcon category={r.category} size={18} />
+                  <Text style={styles.pinTitle}>{categoryLabel(r.category)}</Text>
+                </View>
                 <Text style={styles.pinBody}>{requestSnippet(r)}</Text>
               </GlassCard>
             </Pressable>
           ))}
         </View>
       ) : (
-        <MapView style={StyleSheet.absoluteFill} initialRegion={MAP_REGION}>
+        <MapView
+          ref={mapRef as never}
+          style={StyleSheet.absoluteFill}
+          initialRegion={MAP_REGION}
+          mapPadding={{
+            top: insets.top + 56,
+            right: 16,
+            bottom: insets.bottom + SHEET_CLEARANCE,
+            left: 16,
+          }}
+          showsCompass={false}
+          showsPointsOfInterest={false}
+          showsTraffic={false}
+          showsBuildings
+          toolbarEnabled={false}
+          userInterfaceStyle="light">
+          <Circle
+            center={ICPC}
+            radius={ICPC_RADIUS_METERS}
+            strokeColor={colors.primary}
+            strokeWidth={1.5}
+            fillColor="rgba(15,118,110,0.10)"
+          />
+          <Marker coordinate={ICPC} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={tracksViewChanges}>
+            <PlaceMapPin />
+          </Marker>
           {openRequests.map((r) => (
             <Marker
               key={r.id}
               coordinate={r.location}
-              title={categoryLabel(r.category)}
-              description={r.locationText}
-              onPress={() => setSelectedId(r.id)}
-            />
+              anchor={{ x: 0.5, y: 1 }}
+              tracksViewChanges={tracksViewChanges || selectedId === r.id}
+              onPress={() => setSelectedId(r.id)}>
+              <RequestMapPin category={r.category} selected={selectedId === r.id} />
+            </Marker>
           ))}
         </MapView>
       )}
+
+      {Platform.OS !== 'web' ? (
+        <View style={[styles.topChip, { top: insets.top + 10 }]} pointerEvents="none">
+          <View style={styles.topChipInner}>
+            <Text style={styles.topChipTitle}>ICPC Paterson</Text>
+            <Text style={styles.topChipSub}>{openRequests.length} open nearby</Text>
+          </View>
+        </View>
+      ) : null}
 
       <View style={[styles.sheet, { paddingBottom: insets.bottom + 90 }]}>
         {selected ? (
@@ -79,7 +148,7 @@ export default function MapScreen() {
           <GlassCard strong>
             <Text style={styles.sheetTitle}>Nearby requests</Text>
             <Text style={styles.sheetBody}>
-              Tap a pin around ICPC to help. Your own asks stay under Activity.
+              Tap a teal pin to help. Your own requests are on Activity.
             </Text>
           </GlassCard>
         )}
@@ -104,9 +173,10 @@ function SelectedSheet({
   return (
     <GlassCard strong>
       <View style={styles.sheetTop}>
-        <Text style={styles.sheetTitle}>
-          {categoryEmoji[request.category]} {categoryLabel(request.category)}
-        </Text>
+        <View style={styles.pinRow}>
+          <CategoryIcon category={request.category} size={18} />
+          <Text style={styles.sheetTitle}>{categoryLabel(request.category)}</Text>
+        </View>
         <StatusChip label={statusLabel(request.status)} tone={statusTone(request.status)} />
       </View>
       <Text style={styles.sheetBody}>{requestSnippet(request)}</Text>
@@ -127,7 +197,7 @@ function SelectedSheet({
         <PillButton label="Close" variant="ghost" onPress={onClose} />
       </View>
       {isMine ? (
-        <Text style={styles.note}>This is your request — track it in Activity.</Text>
+        <Text style={styles.note}>This is your request. Track it on Activity.</Text>
       ) : null}
     </GlassCard>
   );
@@ -138,7 +208,34 @@ const styles = StyleSheet.create({
   webFallback: { flex: 1, paddingHorizontal: 20 },
   webTitle: { fontFamily: fonts.bold, fontSize: 24, color: colors.text },
   webSub: { fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginTop: 4 },
-  pinTitle: { fontFamily: fonts.semibold, fontSize: 16, color: colors.text },
+  topChip: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    alignItems: 'flex-start',
+  },
+  topChipInner: {
+    backgroundColor: colors.glassStrong,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth * 2,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  topChipTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.text },
+  topChipSub: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  pinRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  pinTitle: { fontFamily: fonts.semibold, fontSize: 16, color: colors.text, flex: 1 },
   pinBody: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 4 },
   sheet: { position: 'absolute', left: 16, right: 16, bottom: 0 },
   sheetTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },

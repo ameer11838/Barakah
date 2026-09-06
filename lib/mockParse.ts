@@ -42,7 +42,7 @@ function detectTimeWindow(text: string): string {
   if (t.includes('tomorrow') && timeMatch) {
     const hour = parseInt(timeMatch[1], 10);
     const next = hour === 12 ? 1 : hour + 1;
-    return `tomorrow ${timeMatch[1]}${timeMatch[2]}–${next}${timeMatch[2]}`;
+    return `tomorrow ${timeMatch[1]}${timeMatch[2]}-${next}${timeMatch[2]}`;
   }
   if (t.includes('tomorrow')) return 'tomorrow';
   if (t.includes('friday') || t.includes('jummah') || t.includes('jumuah')) {
@@ -74,7 +74,7 @@ function detectPreference(text: string): string | null {
   return null;
 }
 
-/** Mock AI parse with fake latency — no paid LLM. */
+/** Mock AI parse with fake latency. No paid LLM. */
 export async function mockParseRequest(rawText: string): Promise<ParsedRequest> {
   await delay(900 + Math.floor(Math.random() * 500));
 

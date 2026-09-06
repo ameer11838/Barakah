@@ -1,6 +1,6 @@
 import type { HelpRequest, LatLng, Partner, User } from '@/types/barakah';
 
-/** ICPC Paterson — 152 Derrom Ave area */
+/** ICPC Paterson, 152 Derrom Ave area */
 export const ICPC: LatLng = {
   latitude: 40.9177,
   longitude: -74.1404,
@@ -68,7 +68,7 @@ export const partners: Partner[] = [
     type: 'business',
     categories: ['food'],
     location: { latitude: 40.9152, longitude: -74.1598 },
-    standingOffer: 'Friday pantry pickup — bags ready after Asr',
+    standingOffer: 'Friday pantry pickup. Bags ready after Asr.',
   },
 ];
 
@@ -88,7 +88,7 @@ export const users: User[] = [
     responseRate: 0.92,
     lastMatchAt: '2026-09-01T14:00:00Z',
     partnerId: null,
-    avatarColor: '#5B7CFF',
+    avatarColor: '#0F766E',
     isNewHelper: false,
     verificationStatus: 'approved',
     availabilityLabel: 'Evenings & Friday midday',
@@ -109,7 +109,7 @@ export const users: User[] = [
     responseRate: 0.95,
     lastMatchAt: '2026-09-04T18:00:00Z',
     partnerId: null,
-    avatarColor: '#3D5FE8',
+    avatarColor: '#115E59',
     isNewHelper: false,
     verificationStatus: 'approved',
     availabilityLabel: 'Weekday afternoons & Jummah',
@@ -130,7 +130,7 @@ export const users: User[] = [
     responseRate: 0.98,
     lastMatchAt: '2026-09-03T12:00:00Z',
     partnerId: 'partner-icpc',
-    avatarColor: '#3CB371',
+    avatarColor: '#15803D',
     isNewHelper: false,
     verificationStatus: 'approved',
     availabilityLabel: 'ICPC volunteer roster',
@@ -151,7 +151,7 @@ export const users: User[] = [
     responseRate: 1,
     lastMatchAt: null,
     partnerId: 'partner-green-market',
-    avatarColor: '#E8A23A',
+    avatarColor: '#B45309',
     isNewHelper: true,
     verificationStatus: 'approved',
     availabilityLabel: 'Store hours',
@@ -172,7 +172,7 @@ export const users: User[] = [
     responseRate: 0.88,
     lastMatchAt: '2026-08-28T10:00:00Z',
     partnerId: null,
-    avatarColor: '#7B6CFF',
+    avatarColor: '#0E7490',
     isNewHelper: false,
     verificationStatus: 'approved',
     availabilityLabel: 'Weekends',
@@ -193,7 +193,7 @@ export const users: User[] = [
     responseRate: 0.9,
     lastMatchAt: '2026-09-02T09:00:00Z',
     partnerId: null,
-    avatarColor: '#2A9D8F',
+    avatarColor: '#047857',
     isNewHelper: false,
     verificationStatus: 'approved',
     availabilityLabel: 'Mornings',
@@ -208,7 +208,7 @@ export const seedRequests: HelpRequest[] = [
     rawText: 'Need a ride to Jummah tomorrow around 1pm, near ICPC',
     category: 'ride',
     urgency: 'scheduled',
-    timeWindow: 'tomorrow 1pm–2pm',
+    timeWindow: 'tomorrow 1pm-2pm',
     locationText: 'Near ICPC, Derrom Ave',
     preference: null,
     confidence: 0.94,
