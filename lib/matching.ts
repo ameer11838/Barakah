@@ -1,5 +1,5 @@
-import { CATEGORY_MIN_TIER } from '@/types/barakah';
-import type { HelpRequest, User } from '@/types/barakah';
+import { CATEGORY_MIN_TIER, categoryTitle } from '@/types/barakah';
+import type { HelpRequest, Partner, User } from '@/types/barakah';
 
 function toRad(d: number) {
   return (d * Math.PI) / 180;
@@ -27,26 +27,39 @@ export interface RankedMatch {
   aiMatchReason: string;
 }
 
-function buildReason(helper: User, request: HelpRequest, distanceMiles: number): string {
+function buildReason(
+  helper: User,
+  request: HelpRequest,
+  distanceMiles: number,
+  partners: Partner[]
+): string {
   const dist = distanceMiles < 0.3 ? 'very close' : `${distanceMiles.toFixed(1)} mi away`;
   const tier = `Tier ${helper.trustTier}`;
-  const cat = request.category === 'ride' ? 'rides' : request.category.replace(/_/g, ' ');
-  if (helper.partnerId === 'partner-icpc') {
-    return `ICPC volunteer (${tier}) for ${cat}, ${dist}`;
+  const what = categoryTitle(request.category, request.customLabel).toLowerCase();
+
+  // Affiliation is looked up rather than hardcoded, so the reason stays true
+  // whichever institutions a community actually has.
+  const partner = helper.partnerId
+    ? partners.find((p) => p.id === helper.partnerId)
+    : undefined;
+
+  if (partner?.type === 'institution') {
+    return `${partner.name} volunteer (${tier}) for ${what}, ${dist}`;
   }
-  if (helper.partnerId === 'partner-green-market') {
-    return `Green Market partner for food, ${dist}`;
+  if (partner?.type === 'business') {
+    return `${partner.name} partner for ${what}, ${dist}`;
   }
   if (helper.isNewHelper) {
-    return `New ${tier} helper for ${cat}, ${dist}`;
+    return `New ${tier} helper for ${what}, ${dist}`;
   }
-  return `Nearest ${tier} helper for ${cat}, ${dist}`;
+  return `Nearest ${tier} helper for ${what}, ${dist}`;
 }
 
 export function rankHelpers(
   request: HelpRequest,
   helpers: User[],
-  excludeUserId: string
+  excludeUserId: string,
+  partners: Partner[] = []
 ): RankedMatch[] {
   const minTier = CATEGORY_MIN_TIER[request.category];
   const candidates = helpers.filter((h) => {
@@ -74,7 +87,7 @@ export function rankHelpers(
         helper,
         score,
         distanceMiles,
-        aiMatchReason: buildReason(helper, request, distanceMiles),
+        aiMatchReason: buildReason(helper, request, distanceMiles, partners),
       };
     })
     .sort((a, b) => b.score - a.score);
@@ -84,9 +97,17 @@ function hoursSince(iso: string): number {
   return (Date.now() - new Date(iso).getTime()) / 3600000;
 }
 
+/**
+ * Who takes it if nobody taps accept first.
+ *
+ * Prefers an unaffiliated neighbour over an institution volunteer when the
+ * scores are close: a masjid roster is capacity for what neighbours cannot
+ * cover, not the first stop. Falls back to the top match either way.
+ */
 export function pickAutoAccept(matches: RankedMatch[]): RankedMatch | null {
   if (!matches.length) return null;
-  const omar = matches.find((m) => m.helper.id === 'user-omar');
-  if (omar && omar.score >= matches[0].score - 0.15) return omar;
-  return matches[0];
+  const best = matches[0];
+  const neighbour = matches.find((m) => !m.helper.partnerId);
+  if (neighbour && neighbour.score >= best.score - 0.15) return neighbour;
+  return best;
 }

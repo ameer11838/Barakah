@@ -2,51 +2,69 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import { DEFAULT_COMMUNITY, rehome, type Community } from '@/lib/community';
+import { currentLocation, describeLocation, geocodePlace } from '@/lib/geocode';
 import { pickAutoAccept, rankHelpers } from '@/lib/matching';
+import { notices, raiseNotice } from '@/lib/notify';
 import {
+  ANCHOR,
   DEFAULT_USER_ID,
-  geocodePlace,
   partners as seedPartners,
   seedRequests,
   users as seedUsers,
-} from '@/seed/paterson-icpc';
+} from '@/seed/community';
 import type {
+  AppNotification,
   Category,
   HelpRequest,
+  LatLng,
   ParsedRequest,
   Partner,
   Rating,
   TrustTier,
   User,
 } from '@/types/barakah';
-import { CATEGORY_MIN_TIER, POINTS_EXCLUDED } from '@/types/barakah';
+import { CATEGORY_MIN_TIER, POINTS_EXCLUDED, categoryTitle } from '@/types/barakah';
 
 const AUTO_ACCEPT_MS = 2200;
 const POINTS_PER_HELP = 25;
+const MAX_NOTIFICATIONS = 60;
 
 type Toast = { id: string; message: string } | null;
 
 interface BarakahState {
   hydrated: boolean;
   currentUserId: string;
+  community: Community;
   users: User[];
   partners: Partner[];
   requests: HelpRequest[];
   ratings: Rating[];
+  notifications: AppNotification[];
   toast: Toast;
+
   setHydrated: (v: boolean) => void;
   getCurrentUser: () => User;
   getUser: (id: string) => User | undefined;
   resetDemo: () => void;
   setToast: (message: string | null) => void;
+
+  /** Re-anchor the whole community on the device's real location. */
+  useDeviceLocation: () => Promise<boolean>;
+  updateProfile: (patch: { name?: string; email?: string | null }) => void;
+
   toggleCategoryOffered: (category: Category) => void;
   submitIdVerification: () => void;
   approveVerification: () => void;
-  submitRequest: (rawText: string, parsed: ParsedRequest) => string;
-  acceptRequest: (requestId: string) => { ok: boolean; error?: string };
-  confirmCompletion: (requestId: string) => void;
+
+  submitRequest: (rawText: string, parsed: ParsedRequest) => Promise<string>;
+  acceptRequest: (requestId: string) => Promise<{ ok: boolean; error?: string }>;
+  confirmCompletion: (requestId: string) => Promise<void>;
   submitRating: (requestId: string, stars: number, comment: string) => void;
-  escalateToIcpc: (requestId: string) => void;
+  escalateToPartner: (requestId: string) => Promise<void>;
+
+  markNotificationsRead: () => void;
+  unreadCount: () => number;
 }
 
 function cloneUsers(): User[] {
@@ -55,6 +73,10 @@ function cloneUsers(): User[] {
     categoriesOffered: [...u.categoriesOffered],
     badges: [...u.badges],
   }));
+}
+
+function clonePartners(): Partner[] {
+  return seedPartners.map((p) => ({ ...p, categories: [...p.categories] }));
 }
 
 function cloneRequests(): HelpRequest[] {
@@ -73,324 +95,502 @@ const autoAcceptTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 
 export const useBarakahStore = create<BarakahState>()(
   persist(
-    (set, get) => ({
-      hydrated: false,
-      currentUserId: DEFAULT_USER_ID,
-      users: cloneUsers(),
-      partners: seedPartners.map((p) => ({ ...p, categories: [...p.categories] })),
-      requests: cloneRequests(),
-      ratings: [],
-      toast: null,
+    (set, get) => {
+      /** Append a notice, keeping the feed bounded. */
+      const pushNotification = (n: AppNotification) => {
+        const next = [n, ...get().notifications].slice(0, MAX_NOTIFICATIONS);
+        set({ notifications: next });
+      };
 
-      setHydrated: (v) => set({ hydrated: v }),
+      /**
+       * Raise a notice for a user, on every channel available. Never rejects:
+       * a failed email must not roll back an accept that already happened.
+       */
+      const notify = async (
+        userId: string,
+        kind: AppNotification['kind'],
+        copy: { title: string; body: string },
+        requestId: string | null
+      ) => {
+        try {
+          const user = get().users.find((u) => u.id === userId);
+          const record = await raiseNotice({
+            userId,
+            kind,
+            title: copy.title,
+            body: copy.body,
+            requestId,
+            // Only the person holding this device gets a real email; the other
+            // seeded personas are not real inboxes.
+            email: userId === get().currentUserId ? (user?.email ?? null) : null,
+          });
+          pushNotification(record);
+        } catch (err) {
+          console.log('[barakah] notify failed', err);
+        }
+      };
 
-      getCurrentUser: () => {
-        const { users, currentUserId } = get();
-        return users.find((u) => u.id === currentUserId) ?? users[0];
-      },
+      return {
+        hydrated: false,
+        currentUserId: DEFAULT_USER_ID,
+        community: DEFAULT_COMMUNITY,
+        users: cloneUsers(),
+        partners: clonePartners(),
+        requests: cloneRequests(),
+        ratings: [],
+        notifications: [],
+        toast: null,
 
-      getUser: (id) => get().users.find((u) => u.id === id),
+        setHydrated: (v) => set({ hydrated: v }),
 
-      resetDemo: () => {
-        Object.values(autoAcceptTimers).forEach(clearTimeout);
-        Object.keys(autoAcceptTimers).forEach((k) => delete autoAcceptTimers[k]);
-        set({
-          currentUserId: DEFAULT_USER_ID,
-          users: cloneUsers(),
-          partners: seedPartners.map((p) => ({ ...p, categories: [...p.categories] })),
-          requests: cloneRequests(),
-          ratings: [],
-          toast: { id: String(Date.now()), message: 'Demo data reset' },
-        });
-      },
+        getCurrentUser: () => {
+          const { users, currentUserId } = get();
+          return users.find((u) => u.id === currentUserId) ?? users[0];
+        },
 
-      setToast: (message) =>
-        set({ toast: message ? { id: String(Date.now()), message } : null }),
+        getUser: (id) => get().users.find((u) => u.id === id),
 
-      toggleCategoryOffered: (category) => {
-        const { currentUserId, users } = get();
-        set({
-          users: users.map((u) => {
-            if (u.id !== currentUserId) return u;
-            const has = u.categoriesOffered.includes(category);
-            return {
-              ...u,
-              categoriesOffered: has
-                ? u.categoriesOffered.filter((c) => c !== category)
-                : [...u.categoriesOffered, category],
-            };
-          }),
-        });
-      },
+        resetDemo: () => {
+          Object.values(autoAcceptTimers).forEach(clearTimeout);
+          Object.keys(autoAcceptTimers).forEach((k) => delete autoAcceptTimers[k]);
+          set({
+            currentUserId: DEFAULT_USER_ID,
+            community: DEFAULT_COMMUNITY,
+            users: cloneUsers(),
+            partners: clonePartners(),
+            requests: cloneRequests(),
+            ratings: [],
+            notifications: [],
+            toast: { id: String(Date.now()), message: 'Demo data reset' },
+          });
+        },
 
-      submitIdVerification: () => {
-        const { currentUserId, users } = get();
-        set({
-          users: users.map((u) =>
-            u.id === currentUserId ? { ...u, verificationStatus: 'pending' } : u
-          ),
-          toast: {
-            id: String(Date.now()),
-            message: 'ID uploaded. Waiting on demo approval.',
-          },
-        });
-      },
+        setToast: (message) =>
+          set({ toast: message ? { id: String(Date.now()), message } : null }),
 
-      approveVerification: () => {
-        const { currentUserId, users } = get();
-        set({
-          users: users.map((u) =>
-            u.id === currentUserId
-              ? {
-                  ...u,
-                  verificationStatus: 'approved',
-                  trustTier: Math.max(u.trustTier, 2) as TrustTier,
-                }
-              : u
-          ),
-          toast: { id: String(Date.now()), message: 'Tier 2 approved (demo)' },
-        });
-      },
-
-      submitRequest: (rawText, parsed) => {
-        const { currentUserId, users, requests } = get();
-        const geo = geocodePlace(parsed.location_text);
-        const id = `req-${Date.now()}`;
-        const request: HelpRequest = {
-          id,
-          requesterId: currentUserId,
-          rawText,
-          category: parsed.category,
-          urgency: parsed.urgency,
-          timeWindow: parsed.time_window,
-          locationText: geo.label,
-          preference: parsed.preference,
-          confidence: parsed.confidence,
-          location: geo.location,
-          status: 'matching',
-          matchedHelperId: null,
-          aiMatchReason: null,
-          createdAt: new Date().toISOString(),
-          requesterConfirmed: false,
-          helperConfirmed: false,
-        };
-
-        set({ requests: [request, ...requests] });
-
-        const matches = rankHelpers(request, users, currentUserId);
-        const chosen = pickAutoAccept(matches);
-
-        if (chosen) {
-          autoAcceptTimers[id] = setTimeout(() => {
-            const state = get();
-            const stillWaiting = state.requests.find(
-              (r) => r.id === id && (r.status === 'matching' || r.status === 'open')
-            );
-            if (!stillWaiting) return;
+        /**
+         * Move the community to wherever the user actually is, preserving the
+         * relative layout of everyone in it. This is what makes the app work
+         * outside one neighbourhood: open it in any city and the map is
+         * populated with plausible neighbours instead of being empty.
+         */
+        useDeviceLocation: async () => {
+          const point = await currentLocation();
+          if (!point) {
             set({
-              requests: state.requests.map((r) =>
+              toast: {
+                id: String(Date.now()),
+                message: 'Location permission declined. Using the default area.',
+              },
+            });
+            return false;
+          }
+
+          const label = await describeLocation(point);
+          const from = get().community.anchor;
+          const move = (p: LatLng) => rehome(p, from, point);
+
+          set({
+            community: { ...get().community, anchor: point, label },
+            users: get().users.map((u) => ({ ...u, location: move(u.location) })),
+            partners: get().partners.map((p) => ({ ...p, location: move(p.location) })),
+            requests: get().requests.map((r) => ({ ...r, location: move(r.location) })),
+            toast: { id: String(Date.now()), message: `Community set to ${label}` },
+          });
+          return true;
+        },
+
+        updateProfile: ({ name, email }) => {
+          const { currentUserId, users } = get();
+          set({
+            users: users.map((u) =>
+              u.id === currentUserId
+                ? {
+                    ...u,
+                    name: name?.trim() ? name.trim() : u.name,
+                    email: email === undefined ? u.email : email?.trim() || null,
+                  }
+                : u
+            ),
+            toast: { id: String(Date.now()), message: 'Profile updated' },
+          });
+        },
+
+        toggleCategoryOffered: (category) => {
+          const { currentUserId, users } = get();
+          set({
+            users: users.map((u) => {
+              if (u.id !== currentUserId) return u;
+              const has = u.categoriesOffered.includes(category);
+              return {
+                ...u,
+                categoriesOffered: has
+                  ? u.categoriesOffered.filter((c) => c !== category)
+                  : [...u.categoriesOffered, category],
+              };
+            }),
+          });
+        },
+
+        submitIdVerification: () => {
+          const { currentUserId, users } = get();
+          set({
+            users: users.map((u) =>
+              u.id === currentUserId ? { ...u, verificationStatus: 'pending' } : u
+            ),
+            toast: {
+              id: String(Date.now()),
+              message: 'ID uploaded. Waiting on demo approval.',
+            },
+          });
+        },
+
+        approveVerification: () => {
+          const { currentUserId, users } = get();
+          set({
+            users: users.map((u) =>
+              u.id === currentUserId
+                ? {
+                    ...u,
+                    verificationStatus: 'approved',
+                    trustTier: Math.max(u.trustTier, 2) as TrustTier,
+                  }
+                : u
+            ),
+            toast: { id: String(Date.now()), message: 'Tier 2 approved (demo)' },
+          });
+        },
+
+        submitRequest: async (rawText, parsed) => {
+          const { currentUserId, users, partners, requests, community } = get();
+
+          // Geocoding is a real network/OS lookup now, so it is awaited before
+          // the request is written rather than guessed from a lookup table.
+          const geo = await geocodePlace(parsed.location_text, community.anchor);
+
+          const id = `req-${Date.now()}`;
+          const request: HelpRequest = {
+            id,
+            requesterId: currentUserId,
+            rawText,
+            category: parsed.category,
+            urgency: parsed.urgency,
+            timeWindow: parsed.time_window,
+            locationText: geo.label,
+            preference: parsed.preference,
+            confidence: parsed.confidence,
+            location: geo.location,
+            status: 'matching',
+            matchedHelperId: null,
+            aiMatchReason: null,
+            createdAt: new Date().toISOString(),
+            requesterConfirmed: false,
+            helperConfirmed: false,
+            customLabel: parsed.customLabel ?? null,
+          };
+
+          set({ requests: [request, ...requests] });
+
+          const what = categoryTitle(request.category, request.customLabel).toLowerCase();
+          const matches = rankHelpers(request, users, currentUserId, partners);
+          const chosen = pickAutoAccept(matches);
+
+          void notify(
+            currentUserId,
+            'request_created',
+            notices.requestCreated(what, matches.length),
+            id
+          );
+
+          if (chosen) {
+            autoAcceptTimers[id] = setTimeout(() => {
+              const state = get();
+              const stillWaiting = state.requests.find(
+                (r) => r.id === id && (r.status === 'matching' || r.status === 'open')
+              );
+              if (!stillWaiting) return;
+              set({
+                requests: state.requests.map((r) =>
+                  r.id === id
+                    ? {
+                        ...r,
+                        status: 'matched',
+                        matchedHelperId: chosen.helper.id,
+                        aiMatchReason: chosen.aiMatchReason,
+                      }
+                    : r
+                ),
+                toast: {
+                  id: String(Date.now()),
+                  message: `${chosen.helper.name} accepted your request`,
+                },
+              });
+              void notify(
+                state.requests.find((r) => r.id === id)!.requesterId,
+                'request_accepted',
+                notices.requestAccepted(chosen.helper.name, what),
+                id
+              );
+            }, AUTO_ACCEPT_MS);
+          } else {
+            const partner = get().partners.find((p) => p.isEscalationPartner);
+            set({
+              requests: get().requests.map((r) =>
                 r.id === id
                   ? {
                       ...r,
-                      status: 'matched',
-                      matchedHelperId: chosen.helper.id,
-                      aiMatchReason: chosen.aiMatchReason,
+                      status: 'open',
+                      aiMatchReason: partner
+                        ? `No nearby match yet. You can send this to ${partner.name}.`
+                        : 'No nearby match yet.',
                     }
                   : r
               ),
               toast: {
                 id: String(Date.now()),
-                message: `${chosen.helper.name} accepted your request`,
+                message: partner
+                  ? `No helper matched yet. You can send this to ${partner.name}.`
+                  : 'No helper matched yet.',
               },
             });
-          }, AUTO_ACCEPT_MS);
-        } else {
+          }
+
+          return id;
+        },
+
+        acceptRequest: async (requestId) => {
+          const { currentUserId, users, partners, requests } = get();
+          const me = users.find((u) => u.id === currentUserId);
+          const request = requests.find((r) => r.id === requestId);
+          if (!me || !request) return { ok: false, error: 'Request not found' };
+          if (request.requesterId === currentUserId) {
+            return { ok: false, error: "You can't accept your own request" };
+          }
+          if (request.status !== 'open' && request.status !== 'matching') {
+            return { ok: false, error: 'Already taken' };
+          }
+          if (!me.categoriesOffered.includes(request.category)) {
+            return { ok: false, error: "You don't offer this category" };
+          }
+          const minTier = CATEGORY_MIN_TIER[request.category];
+          if (me.trustTier < minTier) {
+            return { ok: false, error: `Requires Tier ${minTier}` };
+          }
+
+          const what = categoryTitle(request.category, request.customLabel).toLowerCase();
+          const matches = rankHelpers(request, users, request.requesterId, partners);
+          const mine = matches.find((m) => m.helper.id === currentUserId);
+          const reason =
+            mine?.aiMatchReason ?? `You offer ${what} nearby (Tier ${me.trustTier})`;
+
           set({
-            requests: get().requests.map((r) =>
-              r.id === id
+            requests: requests.map((r) =>
+              r.id === requestId
                 ? {
                     ...r,
-                    status: 'open',
-                    aiMatchReason: 'No nearby match yet. Try escalating to ICPC.',
+                    status: 'matched',
+                    matchedHelperId: currentUserId,
+                    aiMatchReason: reason,
+                  }
+                : r
+            ),
+            users: users.map((u) =>
+              u.id === currentUserId ? { ...u, lastMatchAt: new Date().toISOString() } : u
+            ),
+            toast: { id: String(Date.now()), message: 'You accepted this request' },
+          });
+
+          // Both sides hear about it: the requester that help is coming, the
+          // helper as their own record of what they took on.
+          const requester = users.find((u) => u.id === request.requesterId);
+          void notify(
+            request.requesterId,
+            'request_accepted',
+            notices.requestAccepted(me.name, what),
+            requestId
+          );
+          void notify(
+            currentUserId,
+            'request_accepted',
+            notices.helperAssigned(what, requester?.name ?? 'a neighbour'),
+            requestId
+          );
+
+          return { ok: true };
+        },
+
+        confirmCompletion: async (requestId) => {
+          const { currentUserId, requests, users } = get();
+          const request = requests.find((r) => r.id === requestId);
+          if (!request || !request.matchedHelperId) return;
+
+          const isRequester = request.requesterId === currentUserId;
+          const isHelper = request.matchedHelperId === currentUserId;
+          if (!isRequester && !isHelper) return;
+
+          let requesterConfirmed = request.requesterConfirmed;
+          let helperConfirmed = request.helperConfirmed;
+          if (isRequester) requesterConfirmed = true;
+          if (isHelper) helperConfirmed = true;
+
+          const both = requesterConfirmed && helperConfirmed;
+          const updated: HelpRequest = {
+            ...request,
+            requesterConfirmed,
+            helperConfirmed,
+            status: both ? 'completed' : 'in_progress',
+          };
+
+          const earnsPoints = both && !POINTS_EXCLUDED.includes(request.category);
+          let nextUsers = users;
+          if (earnsPoints) {
+            nextUsers = users.map((u) => {
+              if (u.id !== request.matchedHelperId) return u;
+              const completedHelps = u.completedHelps + 1;
+              return {
+                ...u,
+                completedHelps,
+                points: u.points + POINTS_PER_HELP,
+                badges: awardBadges(completedHelps, u.badges),
+                isNewHelper: false,
+              };
+            });
+          }
+
+          set({
+            requests: requests.map((r) => (r.id === requestId ? updated : r)),
+            users: nextUsers,
+            toast: {
+              id: String(Date.now()),
+              message: both
+                ? 'Help confirmed. Points added.'
+                : 'Marked complete. Waiting on the other person.',
+            },
+          });
+
+          if (both) {
+            const what = categoryTitle(request.category, request.customLabel).toLowerCase();
+            const copy = notices.completed(what, earnsPoints ? POINTS_PER_HELP : 0);
+            void notify(request.requesterId, 'request_completed', copy, requestId);
+            void notify(request.matchedHelperId, 'request_completed', copy, requestId);
+          }
+        },
+
+        submitRating: (requestId, stars, comment) => {
+          const { currentUserId, requests, ratings, users } = get();
+          const request = requests.find((r) => r.id === requestId);
+          if (!request || request.status !== 'completed' || !request.matchedHelperId) return;
+          if (!request.requesterConfirmed || !request.helperConfirmed) return;
+
+          const toUserId =
+            currentUserId === request.requesterId
+              ? request.matchedHelperId
+              : request.requesterId;
+
+          if (ratings.some((r) => r.requestId === requestId && r.fromUserId === currentUserId)) {
+            return;
+          }
+
+          const rating: Rating = {
+            id: `rating-${Date.now()}`,
+            requestId,
+            fromUserId: currentUserId,
+            toUserId,
+            stars,
+            comment,
+          };
+
+          const targetRatings = [...ratings, rating].filter((r) => r.toUserId === toUserId);
+          const avg =
+            targetRatings.reduce((sum, r) => sum + r.stars, 0) / targetRatings.length;
+
+          set({
+            ratings: [...ratings, rating],
+            users: users.map((u) =>
+              u.id === toUserId
+                ? {
+                    ...u,
+                    ratingAvg: Math.round(avg * 10) / 10,
+                    ratingCount: targetRatings.length,
+                  }
+                : u
+            ),
+            toast: { id: String(Date.now()), message: 'Thanks for rating' },
+          });
+        },
+
+        /**
+         * Hand a request nobody took to the community's institution partner.
+         * The partner is looked up by flag, not by a hardcoded id, so this
+         * works for whichever organisation a given community has onboarded.
+         */
+        escalateToPartner: async (requestId) => {
+          const { requests, users, partners } = get();
+          const request = requests.find((r) => r.id === requestId);
+          const partner = partners.find((p) => p.isEscalationPartner);
+          if (!request || !partner) return;
+
+          // Prefer a Tier 3 volunteer on that partner's roster.
+          const volunteer =
+            users.find(
+              (u) =>
+                u.partnerId === partner.id &&
+                u.trustTier >= CATEGORY_MIN_TIER[request.category]
+            ) ?? users.find((u) => u.partnerId === partner.id);
+          if (!volunteer) return;
+
+          set({
+            requests: requests.map((r) =>
+              r.id === requestId
+                ? {
+                    ...r,
+                    status: 'matched',
+                    matchedHelperId: volunteer.id,
+                    aiMatchReason: `Sent to the ${partner.name} volunteer roster`,
                   }
                 : r
             ),
             toast: {
               id: String(Date.now()),
-              message: 'No helper matched yet. You can escalate to ICPC.',
+              message: `Sent to ${partner.name}. ${volunteer.name} is assigned.`,
             },
           });
-        }
 
-        return id;
-      },
+          const what = categoryTitle(request.category, request.customLabel).toLowerCase();
+          void notify(
+            request.requesterId,
+            'escalated',
+            notices.escalated(what, partner.name),
+            requestId
+          );
+        },
 
-      acceptRequest: (requestId) => {
-        const { currentUserId, users, requests } = get();
-        const me = users.find((u) => u.id === currentUserId);
-        const request = requests.find((r) => r.id === requestId);
-        if (!me || !request) return { ok: false, error: 'Request not found' };
-        if (request.requesterId === currentUserId) {
-          return { ok: false, error: "You can't accept your own request" };
-        }
-        if (request.status !== 'open' && request.status !== 'matching') {
-          return { ok: false, error: 'Already taken' };
-        }
-        if (!me.categoriesOffered.includes(request.category)) {
-          return { ok: false, error: "You don't offer this category" };
-        }
-        const minTier = CATEGORY_MIN_TIER[request.category];
-        if (me.trustTier < minTier) {
-          return { ok: false, error: `Requires Tier ${minTier}` };
-        }
-
-        const matches = rankHelpers(request, users, request.requesterId);
-        const mine = matches.find((m) => m.helper.id === currentUserId);
-        const reason =
-          mine?.aiMatchReason ??
-          `You offer ${request.category.replace(/_/g, ' ')} nearby (Tier ${me.trustTier})`;
-
-        set({
-          requests: requests.map((r) =>
-            r.id === requestId
-              ? {
-                  ...r,
-                  status: 'matched',
-                  matchedHelperId: currentUserId,
-                  aiMatchReason: reason,
-                }
-              : r
-          ),
-          users: users.map((u) =>
-            u.id === currentUserId ? { ...u, lastMatchAt: new Date().toISOString() } : u
-          ),
-          toast: { id: String(Date.now()), message: 'You accepted this request' },
-        });
-        return { ok: true };
-      },
-
-      confirmCompletion: (requestId) => {
-        const { currentUserId, requests, users } = get();
-        const request = requests.find((r) => r.id === requestId);
-        if (!request || !request.matchedHelperId) return;
-
-        const isRequester = request.requesterId === currentUserId;
-        const isHelper = request.matchedHelperId === currentUserId;
-        if (!isRequester && !isHelper) return;
-
-        let requesterConfirmed = request.requesterConfirmed;
-        let helperConfirmed = request.helperConfirmed;
-        if (isRequester) requesterConfirmed = true;
-        if (isHelper) helperConfirmed = true;
-
-        const both = requesterConfirmed && helperConfirmed;
-        const updated: HelpRequest = {
-          ...request,
-          requesterConfirmed,
-          helperConfirmed,
-          status: both ? 'completed' : 'in_progress',
-        };
-
-        let nextUsers = users;
-        if (both && !POINTS_EXCLUDED.includes(request.category)) {
-          nextUsers = users.map((u) => {
-            if (u.id !== request.matchedHelperId) return u;
-            const completedHelps = u.completedHelps + 1;
-            return {
-              ...u,
-              completedHelps,
-              points: u.points + POINTS_PER_HELP,
-              badges: awardBadges(completedHelps, u.badges),
-              isNewHelper: false,
-            };
+        markNotificationsRead: () => {
+          const { currentUserId, notifications } = get();
+          set({
+            notifications: notifications.map((n) =>
+              n.userId === currentUserId ? { ...n, read: true } : n
+            ),
           });
-        }
+        },
 
-        set({
-          requests: requests.map((r) => (r.id === requestId ? updated : r)),
-          users: nextUsers,
-          toast: {
-            id: String(Date.now()),
-            message: both
-              ? 'Help confirmed. Points added.'
-              : 'Marked complete. Waiting on the other person.',
-          },
-        });
-      },
-
-      submitRating: (requestId, stars, comment) => {
-        const { currentUserId, requests, ratings, users } = get();
-        const request = requests.find((r) => r.id === requestId);
-        if (!request || request.status !== 'completed' || !request.matchedHelperId) return;
-        if (!request.requesterConfirmed || !request.helperConfirmed) return;
-
-        const toUserId =
-          currentUserId === request.requesterId
-            ? request.matchedHelperId
-            : request.requesterId;
-
-        if (ratings.some((r) => r.requestId === requestId && r.fromUserId === currentUserId)) {
-          return;
-        }
-
-        const rating: Rating = {
-          id: `rating-${Date.now()}`,
-          requestId,
-          fromUserId: currentUserId,
-          toUserId,
-          stars,
-          comment,
-        };
-
-        const targetRatings = [...ratings, rating].filter((r) => r.toUserId === toUserId);
-        const avg =
-          targetRatings.reduce((sum, r) => sum + r.stars, 0) / targetRatings.length;
-
-        set({
-          ratings: [...ratings, rating],
-          users: users.map((u) =>
-            u.id === toUserId
-              ? {
-                  ...u,
-                  ratingAvg: Math.round(avg * 10) / 10,
-                  ratingCount: targetRatings.length,
-                }
-              : u
-          ),
-          toast: { id: String(Date.now()), message: 'Thanks for rating' },
-        });
-      },
-
-      escalateToIcpc: (requestId) => {
-        const { requests, users } = get();
-        const fatima = users.find((u) => u.id === 'user-fatima');
-        if (!fatima) return;
-        set({
-          requests: requests.map((r) =>
-            r.id === requestId
-              ? {
-                  ...r,
-                  status: 'matched',
-                  matchedHelperId: fatima.id,
-                  aiMatchReason: 'Sent to ICPC Tier 3 volunteer roster',
-                }
-              : r
-          ),
-          toast: {
-            id: String(Date.now()),
-            message: 'Sent to ICPC. Fatima Ali is assigned.',
-          },
-        });
-      },
-    }),
+        unreadCount: () => {
+          const { currentUserId, notifications } = get();
+          return notifications.filter((n) => n.userId === currentUserId && !n.read).length;
+        },
+      };
+    },
     {
-      name: 'barakah-demo-v1',
+      name: 'barakah-demo-v2',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({
         currentUserId: s.currentUserId,
+        community: s.community,
         users: s.users,
+        partners: s.partners,
         requests: s.requests,
         ratings: s.ratings,
+        notifications: s.notifications,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);

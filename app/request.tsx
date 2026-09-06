@@ -30,10 +30,9 @@ export default function RequestScreen() {
   const insets = useSafeAreaInsets();
   const submitRequest = useBarakahStore((s) => s.submitRequest);
 
-  const [rawText, setRawText] = useState(
-    'Need a ride to Jummah tomorrow around 1pm, near ICPC'
-  );
+  const [rawText, setRawText] = useState('');
   const [parsing, setParsing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [parsed, setParsed] = useState<ParsedRequest | null>(null);
   const [manualCategory, setManualCategory] = useState(false);
 
@@ -53,11 +52,21 @@ export default function RequestScreen() {
     setParsed({ ...parsed, ...patch });
   }
 
-  function onSubmit() {
-    if (!parsed) return;
-    const id = submitRequest(rawText, parsed);
-    router.replace(`/request/${id}`);
+  async function onSubmit() {
+    if (!parsed || submitting) return;
+    // 'Something else' is only meaningful with a description of what it is.
+    if (parsed.category === 'other' && !parsed.customLabel?.trim()) return;
+    setSubmitting(true);
+    try {
+      const id = await submitRequest(rawText, parsed);
+      router.replace(`/request/${id}`);
+    } finally {
+      setSubmitting(false);
+    }
   }
+
+  const needsCustomLabel =
+    parsed?.category === 'other' && !parsed.customLabel?.trim();
 
   return (
     <View style={styles.root}>
@@ -86,7 +95,7 @@ export default function RequestScreen() {
               value={rawText}
               onChangeText={setRawText}
               multiline
-              placeholder="Need a ride to Jummah tomorrow near ICPC"
+              placeholder="Need a ride to Jummah tomorrow around 1pm, near the masjid"
               placeholderTextColor={colors.textMuted}
               style={styles.input}
             />
@@ -142,6 +151,24 @@ export default function RequestScreen() {
                 </View>
               )}
 
+              {parsed.category === 'other' ? (
+                <View style={styles.otherBox}>
+                  <Text style={styles.otherTitle}>Tell us what you need</Text>
+                  <Text style={styles.otherHint}>
+                    Not everything fits a category. Describe it in a few words and it goes
+                    out to verified helpers the same way.
+                  </Text>
+                  <TextInput
+                    value={parsed.customLabel ?? ''}
+                    onChangeText={(customLabel) => updateParsed({ customLabel })}
+                    placeholder="e.g. help arranging a janazah"
+                    placeholderTextColor={colors.textMuted}
+                    style={styles.fieldInput}
+                    maxLength={80}
+                  />
+                </View>
+              ) : null}
+
               <Field
                 label="Urgency"
                 value={parsed.urgency}
@@ -171,12 +198,21 @@ export default function RequestScreen() {
 
               {(parsed.category === 'childcare' || parsed.category === 'elder_transport') && (
                 <Text style={styles.warn}>
-                  Childcare and elder transport need Tier 3 (ICPC). You can submit this for the
-                  demo, but peer helpers will not take it.
+                  Childcare and elder transport need a Tier 3 helper — background-checked or
+                  on a partner institution&apos;s vetted roster. Neighbours will not be paged
+                  for it.
                 </Text>
               )}
 
-              <PillButton label="Submit request" onPress={onSubmit} style={{ marginTop: 14 }} />
+              <PillButton
+                label={submitting ? 'Sending...' : 'Submit request'}
+                onPress={onSubmit}
+                disabled={submitting || needsCustomLabel}
+                style={{ marginTop: 14 }}
+              />
+              {needsCustomLabel ? (
+                <Text style={styles.meta}>Add a short description to send this.</Text>
+              ) : null}
             </GlassCard>
           ) : null}
         </ScrollView>
@@ -270,6 +306,21 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 15,
     color: colors.text,
+  },
+  otherBox: {
+    marginTop: 14,
+    padding: 12,
+    borderRadius: radii.md,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+  },
+  otherTitle: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
+  otherHint: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+    marginBottom: 8,
+    lineHeight: 17,
   },
   warn: {
     fontFamily: fonts.medium,

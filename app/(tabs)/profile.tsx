@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GeometricBackdrop } from '@/components/GeometricBackdrop';
@@ -8,6 +9,7 @@ import { Avatar, StatusChip } from '@/components/ui/Chips';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
 import { colors, fonts } from '@/constants/theme';
+import { emailConfigured, emailProviderName } from '@/lib/email';
 import { useBarakahStore } from '@/store/barakahStore';
 import { BADGE_LABELS } from '@/types/barakah';
 
@@ -15,6 +17,22 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const user = useBarakahStore((s) => s.getCurrentUser());
   const resetDemo = useBarakahStore((s) => s.resetDemo);
+  const updateProfile = useBarakahStore((s) => s.updateProfile);
+  const useDeviceLocation = useBarakahStore((s) => s.useDeviceLocation);
+  const community = useBarakahStore((s) => s.community);
+
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email ?? '');
+  const [locating, setLocating] = useState(false);
+
+  const emailInvalid = email.trim().length > 0 && !email.includes('@');
+
+  function save() {
+    if (emailInvalid) return;
+    updateProfile({ name, email });
+    setEditing(false);
+  }
 
   return (
     <View style={styles.root}>
@@ -34,12 +52,57 @@ export default function ProfileScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{user.name}</Text>
               <Text style={styles.meta}>{user.phone}</Text>
+              <Text style={styles.meta}>{user.email ?? 'No email on file'}</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                 <StatusChip label={`Tier ${user.trustTier}`} tone="primary" />
                 {user.isNewHelper ? <StatusChip label="New helper" tone="warning" /> : null}
               </View>
             </View>
+            <Pressable onPress={() => setEditing((v) => !v)} hitSlop={10}>
+              <Ionicons
+                name={editing ? 'close' : 'create-outline'}
+                size={20}
+                color={colors.primary}
+              />
+            </Pressable>
           </View>
+
+          {editing ? (
+            <View style={{ marginTop: 14 }}>
+              <Text style={styles.fieldLabel}>Name</Text>
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                placeholder="Your name"
+                placeholderTextColor={colors.textMuted}
+                style={styles.input}
+              />
+              <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Email</Text>
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="you@example.com"
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                style={styles.input}
+              />
+              <Text style={styles.meta}>
+                {emailInvalid
+                  ? 'That does not look like an email address.'
+                  : emailConfigured()
+                    ? `Accept and completion notices are emailed here via ${emailProviderName()}.`
+                    : 'Notices appear in the app. Add an email provider key to also send email.'}
+              </Text>
+              <PillButton
+                label="Save"
+                onPress={save}
+                disabled={emailInvalid}
+                style={{ marginTop: 12 }}
+              />
+            </View>
+          ) : null}
+
           <View style={styles.stats}>
             <Stat label="Points" value={String(user.points)} />
             <Stat label="Helps" value={String(user.completedHelps)} />
@@ -48,6 +111,31 @@ export default function ProfileScreen() {
               value={user.ratingAvg != null ? user.ratingAvg.toFixed(1) : 'n/a'}
             />
           </View>
+        </GlassCard>
+
+        <GlassCard>
+          <Text style={styles.section}>Your area</Text>
+          <Text style={styles.meta}>
+            Barakah is not tied to one masjid or city. Set your location and the community
+            re-centres around you.
+          </Text>
+          <View style={styles.areaRow}>
+            <Ionicons name="location-outline" size={16} color={colors.primary} />
+            <Text style={styles.areaLabel}>{community.label}</Text>
+          </View>
+          <PillButton
+            label={locating ? 'Locating...' : 'Use my location'}
+            variant="ghost"
+            disabled={locating}
+            onPress={async () => {
+              setLocating(true);
+              try {
+                await useDeviceLocation();
+              } finally {
+                setLocating(false);
+              }
+            }}
+          />
         </GlassCard>
 
         <GlassCard>
@@ -66,7 +154,8 @@ export default function ProfileScreen() {
         <GlassCard>
           <Text style={styles.section}>More</Text>
           <NavRow label="Help settings" hint="Categories & verification" href="/help-settings" />
-          <NavRow label="Partners" hint="ICPC & local offers" href="/partners" />
+          <NavRow label="Partners" hint="Local institutions & offers" href="/partners" />
+          <NavRow label="Notifications" hint="What was sent, and how" href="/notifications" />
         </GlassCard>
 
         <PillButton label="Reset demo data" variant="ghost" onPress={resetDemo} />
@@ -82,7 +171,7 @@ function NavRow({
 }: {
   label: string;
   hint: string;
-  href: '/help-settings' | '/partners';
+  href: '/help-settings' | '/partners' | '/notifications';
 }) {
   return (
     <Pressable
@@ -133,4 +222,17 @@ const styles = StyleSheet.create({
     borderTopColor: colors.borderSubtle,
   },
   navLabel: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
+  fieldLabel: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted },
+  input: {
+    marginTop: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontFamily: fonts.regular,
+    fontSize: 15,
+    color: colors.text,
+  },
+  areaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 10 },
+  areaLabel: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
 });

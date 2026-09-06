@@ -28,7 +28,7 @@ export default function PartnersScreen() {
             <Text style={styles.close}>Back</Text>
           </Pressable>
         </View>
-        <Text style={styles.sub}>Places near ICPC that work with Barakah.</Text>
+        <Text style={styles.sub}>Places near you that work with Barakah.</Text>
 
         {partners.map((p) => (
           <GlassCard key={p.id} strong>

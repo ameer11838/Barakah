@@ -14,6 +14,7 @@ import 'react-native-reanimated';
 
 import { ToastHost } from '@/components/ToastHost';
 import { colors } from '@/constants/theme';
+import { ensureNotificationPermission } from '@/lib/notify';
 import { useBarakahStore } from '@/store/barakahStore';
 
 export { ErrorBoundary } from 'expo-router';
@@ -40,6 +41,12 @@ export default function RootLayout() {
     }
   }, [loaded, setHydrated]);
 
+  // Ask once, at launch. A refusal is a normal answer — notices still land in
+  // the in-app feed, so nothing downstream depends on this succeeding.
+  useEffect(() => {
+    void ensureNotificationPermission();
+  }, []);
+
   if (!loaded) return null;
 
   return (
@@ -51,6 +58,10 @@ export default function RootLayout() {
         <Stack.Screen name="request/[id]" options={{ presentation: 'card', headerShown: false }} />
         <Stack.Screen name="partners" options={{ presentation: 'card', headerShown: false }} />
         <Stack.Screen name="help-settings" options={{ presentation: 'card', headerShown: false }} />
+        <Stack.Screen
+          name="notifications"
+          options={{ presentation: 'card', headerShown: false }}
+        />
       </Stack>
       <ToastHost />
     </View>

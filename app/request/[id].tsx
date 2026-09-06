@@ -10,7 +10,7 @@ import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
 import { colors, fonts } from '@/constants/theme';
-import { categoryLabel, formatConfidence, statusLabel, statusTone } from '@/lib/format';
+import { formatConfidence, requestTitle, statusLabel, statusTone } from '@/lib/format';
 import { useBarakahStore } from '@/store/barakahStore';
 
 export default function RequestDetailScreen() {
@@ -22,8 +22,11 @@ export default function RequestDetailScreen() {
   const acceptRequest = useBarakahStore((s) => s.acceptRequest);
   const confirmCompletion = useBarakahStore((s) => s.confirmCompletion);
   const submitRating = useBarakahStore((s) => s.submitRating);
-  const escalateToIcpc = useBarakahStore((s) => s.escalateToIcpc);
+  const escalateToPartner = useBarakahStore((s) => s.escalateToPartner);
+  const partners = useBarakahStore((s) => s.partners);
   const ratings = useBarakahStore((s) => s.ratings);
+
+  const escalationPartner = partners.find((p) => p.isEscalationPartner);
 
   const [stars, setStars] = useState(5);
   const [comment, setComment] = useState('');
@@ -65,7 +68,7 @@ export default function RequestDetailScreen() {
           <View style={styles.row}>
             <CategoryIcon category={request.category} size={26} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>{categoryLabel(request.category)}</Text>
+              <Text style={styles.cardTitle}>{requestTitle(request)}</Text>
               <StatusChip
                 label={statusLabel(request.status)}
                 tone={statusTone(request.status)}
@@ -96,9 +99,9 @@ export default function RequestDetailScreen() {
               />
             ) : (
               <PillButton
-                label="Escalate to ICPC"
+                label={`Send to ${escalationPartner?.name ?? "a partner"}`}
                 variant="secondary"
-                onPress={() => escalateToIcpc(request.id)}
+                onPress={() => void escalateToPartner(request.id)}
                 style={{ marginTop: 12 }}
               />
             )}

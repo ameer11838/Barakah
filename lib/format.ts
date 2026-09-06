@@ -2,12 +2,17 @@ import type { ComponentProps } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
 import type { Category, HelpRequest, RequestStatus } from '@/types/barakah';
-import { CATEGORY_LABELS } from '@/types/barakah';
+import { CATEGORY_LABELS, categoryTitle } from '@/types/barakah';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
 export function categoryLabel(category: Category) {
   return CATEGORY_LABELS[category];
+}
+
+/** What a request should be called in the UI, honouring an 'other' label. */
+export function requestTitle(request: Pick<HelpRequest, 'category' | 'customLabel'>) {
+  return categoryTitle(request.category, request.customLabel);
 }
 
 export function statusLabel(status: RequestStatus) {
@@ -50,4 +55,5 @@ export const categoryIcon: Record<Category, IoniconName> = {
   laptop: 'laptop-outline',
   childcare: 'people-outline',
   elder_transport: 'accessibility-outline',
+  other: 'sparkles-outline',
 };

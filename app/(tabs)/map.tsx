@@ -10,13 +10,14 @@ import { StatusChip } from '@/components/ui/Chips';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
 import { colors, fonts } from '@/constants/theme';
-import { categoryLabel, requestSnippet, statusLabel, statusTone } from '@/lib/format';
-import { ICPC, MAP_REGION } from '@/seed/paterson-icpc';
+import { requestSnippet, requestTitle, statusLabel, statusTone } from '@/lib/format';
+import { ANCHOR, MAP_REGION } from '@/seed/community';
 import { useBarakahStore } from '@/store/barakahStore';
 import type { HelpRequest } from '@/types/barakah';
 
 const SHEET_CLEARANCE = 210;
-const ICPC_RADIUS_METERS = 900;
+/** Radius of the community ring drawn around the anchor. */
+const COMMUNITY_RADIUS_METERS = 900;
 
 type MapHandle = {
   animateToRegion: (
@@ -36,6 +37,7 @@ export default function MapScreen() {
   const requests = useBarakahStore((s) => s.requests);
   const currentUserId = useBarakahStore((s) => s.currentUserId);
   const acceptRequest = useBarakahStore((s) => s.acceptRequest);
+  const community = useBarakahStore((s) => s.community);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
 
@@ -69,14 +71,14 @@ export default function MapScreen() {
     <View style={styles.root}>
       {Platform.OS === 'web' ? (
         <View style={[styles.webFallback, { paddingTop: insets.top + 16 }]}>
-          <Text style={styles.webTitle}>Map near ICPC</Text>
-          <Text style={styles.webSub}>Open requests around Derrom Ave</Text>
+          <Text style={styles.webTitle}>Map near you</Text>
+          <Text style={styles.webSub}>Open requests around {community.label}</Text>
           {openRequests.map((r) => (
             <Pressable key={r.id} onPress={() => setSelectedId(r.id)} style={{ marginTop: 10 }}>
               <GlassCard strong={selectedId === r.id}>
                 <View style={styles.pinRow}>
                   <CategoryIcon category={r.category} size={18} />
-                  <Text style={styles.pinTitle}>{categoryLabel(r.category)}</Text>
+                  <Text style={styles.pinTitle} numberOfLines={1}>{requestTitle(r)}</Text>
                 </View>
                 <Text style={styles.pinBody}>{requestSnippet(r)}</Text>
               </GlassCard>
@@ -101,13 +103,13 @@ export default function MapScreen() {
           toolbarEnabled={false}
           userInterfaceStyle="light">
           <Circle
-            center={ICPC}
-            radius={ICPC_RADIUS_METERS}
+            center={ANCHOR}
+            radius={COMMUNITY_RADIUS_METERS}
             strokeColor={colors.primary}
             strokeWidth={1.5}
             fillColor="rgba(15,118,110,0.10)"
           />
-          <Marker coordinate={ICPC} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={tracksViewChanges}>
+          <Marker coordinate={ANCHOR} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={tracksViewChanges}>
             <PlaceMapPin />
           </Marker>
           {openRequests.map((r) => (
@@ -126,7 +128,7 @@ export default function MapScreen() {
       {Platform.OS !== 'web' ? (
         <View style={[styles.topChip, { top: insets.top + 10 }]} pointerEvents="none">
           <View style={styles.topChipInner}>
-            <Text style={styles.topChipTitle}>ICPC Paterson</Text>
+            <Text style={styles.topChipTitle}>{community.label}</Text>
             <Text style={styles.topChipSub}>{openRequests.length} open nearby</Text>
           </View>
         </View>
@@ -137,8 +139,8 @@ export default function MapScreen() {
           <SelectedSheet
             request={selected}
             isMine={selected.requesterId === currentUserId}
-            onAccept={() => {
-              const res = acceptRequest(selected.id);
+            onAccept={async () => {
+              const res = await acceptRequest(selected.id);
               if (res.ok) router.push(`/request/${selected.id}`);
             }}
             onOpen={() => router.push(`/request/${selected.id}`)}
@@ -175,7 +177,7 @@ function SelectedSheet({
       <View style={styles.sheetTop}>
         <View style={styles.pinRow}>
           <CategoryIcon category={request.category} size={18} />
-          <Text style={styles.sheetTitle}>{categoryLabel(request.category)}</Text>
+          <Text style={styles.sheetTitle} numberOfLines={1}>{requestTitle(request)}</Text>
         </View>
         <StatusChip label={statusLabel(request.status)} tone={statusTone(request.status)} />
       </View>

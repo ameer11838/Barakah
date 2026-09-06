@@ -18,7 +18,7 @@ export default function HelpSettingsScreen() {
   const submitIdVerification = useBarakahStore((s) => s.submitIdVerification);
   const approveVerification = useBarakahStore((s) => s.approveVerification);
 
-  const icpc = partners.find((p) => p.id === 'partner-icpc');
+  const institution = partners.find((p) => p.isEscalationPartner);
 
   return (
     <View style={styles.root}>
@@ -50,7 +50,7 @@ export default function HelpSettingsScreen() {
                     {locked
                       ? `Needs Tier ${CATEGORY_MIN_TIER[cat]}${
                           cat === 'childcare' || cat === 'elder_transport'
-                            ? ' (ICPC only in this demo)'
+                            ? ' (partner volunteers only)'
                             : ''
                         }`
                       : 'Available'}
@@ -71,7 +71,7 @@ export default function HelpSettingsScreen() {
           <Text style={styles.section}>Verification</Text>
           <Text style={styles.meta}>
             Status: {user.verificationStatus}
-            {icpc ? ` · Partner: ${icpc.name}` : ''}
+            {institution ? ` · Partner: ${institution.name}` : ''}
           </Text>
           <View style={{ gap: 8, marginTop: 12 }}>
             <PillButton

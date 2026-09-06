@@ -1,73 +1,37 @@
+import { DEFAULT_COMMUNITY, mapRegionFor, offsetFrom } from '@/lib/community';
 import type { HelpRequest, LatLng, Partner, User } from '@/types/barakah';
 
-/** ICPC Paterson, 152 Derrom Ave area */
-export const ICPC: LatLng = {
-  latitude: 40.9177,
-  longitude: -74.1404,
-};
+/**
+ * Seed community.
+ *
+ * Everything here is positioned relative to the community anchor rather than
+ * to a fixed address, so the same seed drops into any city the app is opened
+ * in. The names are generic on purpose: Barakah is not affiliated with any
+ * particular masjid, organisation or business, and shipping a real one's name
+ * in the demo data would imply otherwise.
+ */
 
-export const MAP_REGION = {
-  ...ICPC,
-  latitudeDelta: 0.035,
-  longitudeDelta: 0.035,
-};
+export const ANCHOR: LatLng = DEFAULT_COMMUNITY.anchor;
+export const MAP_REGION = mapRegionFor(ANCHOR);
 
-export const PLACE_LOOKUP: { keys: string[]; location: LatLng; label: string }[] = [
-  {
-    keys: ['icpc', 'masjid', 'derrom', 'jummah', 'jumuah', 'mosque'],
-    location: ICPC,
-    label: 'Near ICPC, Derrom Ave',
-  },
-  {
-    keys: ['main ave', 'main street', 'broadway'],
-    location: { latitude: 40.9148, longitude: -74.162 },
-    label: 'Near Main Ave',
-  },
-  {
-    keys: ['eastside', 'east side park', 'park'],
-    location: { latitude: 40.9125, longitude: -74.1355 },
-    label: 'Near Eastside Park',
-  },
-  {
-    keys: ['university', 'passaic', 'college', 'pccc'],
-    location: { latitude: 40.9245, longitude: -74.148 },
-    label: 'Near Passaic County CC area',
-  },
-];
-
-export function geocodePlace(text: string): { location: LatLng; label: string } {
-  const lower = text.toLowerCase();
-  for (const entry of PLACE_LOOKUP) {
-    if (entry.keys.some((k) => lower.includes(k))) {
-      return { location: entry.location, label: entry.label };
-    }
-  }
-  return {
-    location: {
-      latitude: ICPC.latitude + 0.002,
-      longitude: ICPC.longitude - 0.003,
-    },
-    label: text.trim() || 'Near ICPC',
-  };
-}
-
-export const DEFAULT_USER_ID = 'user-aisha';
+export const DEFAULT_USER_ID = 'user-you';
 
 export const partners: Partner[] = [
   {
-    id: 'partner-icpc',
-    name: 'Islamic Center of Passaic County',
+    id: 'partner-institution',
+    name: DEFAULT_COMMUNITY.institutionName,
     type: 'institution',
-    categories: ['childcare', 'ride', 'food', 'elder_transport'],
-    location: ICPC,
-    standingOffer: null,
+    categories: ['childcare', 'ride', 'food', 'elder_transport', 'other'],
+    location: ANCHOR,
+    standingOffer: 'Vetted volunteer roster. Absorbs requests no neighbour can take.',
+    isEscalationPartner: true,
   },
   {
-    id: 'partner-green-market',
-    name: 'Green Market Grocer',
+    id: 'partner-grocer',
+    name: DEFAULT_COMMUNITY.businessName,
     type: 'business',
     categories: ['food'],
-    location: { latitude: 40.9152, longitude: -74.1598 },
+    location: offsetFrom(ANCHOR, -0.0016, -0.0194),
     standingOffer: 'Friday pantry pickup. Bags ready after Asr.',
   },
 ];
@@ -75,11 +39,14 @@ export const partners: Partner[] = [
 export const users: User[] = [
   {
     id: DEFAULT_USER_ID,
-    name: 'Aisha Rahman',
-    phone: '+1 (973) 555-0142',
+    // The person holding the phone. Editable in Profile — the demo should not
+    // put words, or a name, in the presenter's mouth.
+    name: 'You',
+    phone: '+1 (555) 010-0142',
+    email: null,
     trustTier: 2,
     categoriesOffered: ['ride', 'food'],
-    location: { latitude: 40.919, longitude: -74.143 },
+    location: offsetFrom(ANCHOR, 0.0022, 0.0288),
     ratingAvg: 4.9,
     ratingCount: 12,
     points: 80,
@@ -97,10 +64,11 @@ export const users: User[] = [
   {
     id: 'user-omar',
     name: 'Omar Hassan',
-    phone: '+1 (973) 555-0198',
+    phone: '+1 (555) 010-0198',
+    email: null,
     trustTier: 2,
-    categoriesOffered: ['ride', 'food', 'moving_help'],
-    location: { latitude: 40.9165, longitude: -74.1388 },
+    categoriesOffered: ['ride', 'food', 'moving_help', 'other'],
+    location: offsetFrom(ANCHOR, -0.0003, 0.033),
     ratingAvg: 4.8,
     ratingCount: 28,
     points: 240,
@@ -118,10 +86,11 @@ export const users: User[] = [
   {
     id: 'user-fatima',
     name: 'Fatima Ali',
-    phone: '+1 (973) 555-0110',
+    phone: '+1 (555) 010-0110',
+    email: null,
     trustTier: 3,
-    categoriesOffered: ['childcare', 'ride', 'food'],
-    location: { latitude: 40.9182, longitude: -74.1412 },
+    categoriesOffered: ['childcare', 'ride', 'food', 'elder_transport'],
+    location: offsetFrom(ANCHOR, 0.0014, 0.0306),
     ratingAvg: 5.0,
     ratingCount: 41,
     points: 0,
@@ -129,20 +98,21 @@ export const users: User[] = [
     completedHelps: 40,
     responseRate: 0.98,
     lastMatchAt: '2026-09-03T12:00:00Z',
-    partnerId: 'partner-icpc',
+    partnerId: 'partner-institution',
     avatarColor: '#15803D',
     isNewHelper: false,
     verificationStatus: 'approved',
-    availabilityLabel: 'ICPC volunteer roster',
+    availabilityLabel: 'Partner volunteer roster',
     radiusMiles: 8,
   },
   {
     id: 'user-yusuf',
     name: 'Yusuf Khan',
-    phone: '+1 (973) 555-0166',
+    phone: '+1 (555) 010-0166',
+    email: null,
     trustTier: 2,
     categoriesOffered: ['food', 'laptop'],
-    location: { latitude: 40.914, longitude: -74.158 },
+    location: offsetFrom(ANCHOR, -0.0028, 0.0138),
     ratingAvg: null,
     ratingCount: 0,
     points: 0,
@@ -150,7 +120,7 @@ export const users: User[] = [
     completedHelps: 0,
     responseRate: 1,
     lastMatchAt: null,
-    partnerId: 'partner-green-market',
+    partnerId: 'partner-grocer',
     avatarColor: '#B45309',
     isNewHelper: true,
     verificationStatus: 'approved',
@@ -160,10 +130,11 @@ export const users: User[] = [
   {
     id: 'user-mariam',
     name: 'Mariam Noor',
-    phone: '+1 (973) 555-0133',
+    phone: '+1 (555) 010-0133',
+    email: null,
     trustTier: 2,
-    categoriesOffered: ['ride', 'moving_help'],
-    location: { latitude: 40.921, longitude: -74.146 },
+    categoriesOffered: ['ride', 'moving_help', 'other'],
+    location: offsetFrom(ANCHOR, 0.0042, 0.0258),
     ratingAvg: 4.6,
     ratingCount: 9,
     points: 90,
@@ -181,10 +152,11 @@ export const users: User[] = [
   {
     id: 'user-ibrahim',
     name: 'Ibrahim Saleh',
-    phone: '+1 (973) 555-0177',
+    phone: '+1 (555) 010-0177',
+    email: null,
     trustTier: 2,
-    categoriesOffered: ['ride', 'food'],
-    location: { latitude: 40.913, longitude: -74.136 },
+    categoriesOffered: ['ride', 'food', 'new_muslim_resources'],
+    location: offsetFrom(ANCHOR, -0.0038, 0.0358),
     ratingAvg: 4.7,
     ratingCount: 15,
     points: 150,
@@ -205,73 +177,98 @@ export const seedRequests: HelpRequest[] = [
   {
     id: 'req-jummah',
     requesterId: 'user-seed-1',
-    rawText: 'Need a ride to Jummah tomorrow around 1pm, near ICPC',
+    rawText: 'Need a ride to Jummah tomorrow around 1pm, near the masjid',
     category: 'ride',
     urgency: 'scheduled',
     timeWindow: 'tomorrow 1pm-2pm',
-    locationText: 'Near ICPC, Derrom Ave',
+    locationText: 'Near the masjid',
     preference: null,
     confidence: 0.94,
-    location: { latitude: 40.9181, longitude: -74.141 },
+    location: offsetFrom(ANCHOR, 0.0013, 0.0308),
     status: 'open',
     matchedHelperId: null,
     aiMatchReason: null,
     createdAt: '2026-09-05T14:00:00Z',
     requesterConfirmed: false,
     helperConfirmed: false,
+    customLabel: null,
   },
   {
     id: 'req-food',
     requesterId: 'user-seed-2',
-    rawText: 'Could use groceries this evening near Main Ave, family of 4',
+    rawText: 'Could use groceries this evening, family of 4',
     category: 'food',
     urgency: 'immediate',
     timeWindow: 'this evening',
-    locationText: 'Near Main Ave',
+    locationText: 'Near the main road',
     preference: null,
     confidence: 0.9,
-    location: { latitude: 40.915, longitude: -74.1605 },
+    location: offsetFrom(ANCHOR, -0.0018, 0.0113),
     status: 'open',
     matchedHelperId: null,
     aiMatchReason: null,
     createdAt: '2026-09-05T15:30:00Z',
     requesterConfirmed: false,
     helperConfirmed: false,
+    customLabel: null,
   },
   {
-    id: 'req-eastside',
+    id: 'req-appointment',
     requesterId: 'user-seed-3',
-    rawText: 'Ride to appointment near Eastside Park Saturday morning',
+    rawText: 'Ride to a hospital appointment Saturday morning',
     category: 'ride',
     urgency: 'scheduled',
     timeWindow: 'Saturday morning',
-    locationText: 'Near Eastside Park',
+    locationText: 'Near the park',
     preference: 'prefers same-gender helper',
     confidence: 0.86,
-    location: { latitude: 40.9128, longitude: -74.1358 },
+    location: offsetFrom(ANCHOR, -0.004, 0.036),
     status: 'open',
     matchedHelperId: null,
     aiMatchReason: null,
     createdAt: '2026-09-05T12:00:00Z',
     requesterConfirmed: false,
     helperConfirmed: false,
+    customLabel: null,
   },
   {
     id: 'req-moving',
     requesterId: 'user-seed-4',
-    rawText: 'Need help moving a few boxes two blocks from Derrom Ave',
+    rawText: 'Need help moving a few boxes two blocks over',
     category: 'moving_help',
     urgency: 'scheduled',
     timeWindow: 'Sunday afternoon',
-    locationText: 'Residential streets off Derrom',
+    locationText: 'Residential streets nearby',
     preference: null,
     confidence: 0.88,
-    location: { latitude: 40.9168, longitude: -74.1375 },
+    location: offsetFrom(ANCHOR, 0.0, 0.0343),
     status: 'open',
     matchedHelperId: null,
     aiMatchReason: null,
     createdAt: '2026-09-05T11:00:00Z',
     requesterConfirmed: false,
     helperConfirmed: false,
+    customLabel: null,
+  },
+  {
+    // Shows the open-ended path: a real need that fits none of the buckets.
+    id: 'req-other',
+    requesterId: 'user-seed-5',
+    rawText:
+      "My father passed and I don't know how to arrange a janazah. I need someone who has done this before to walk me through it.",
+    category: 'other',
+    urgency: 'immediate',
+    timeWindow: 'today',
+    locationText: 'Near the masjid',
+    preference: null,
+    confidence: 0.42,
+    location: offsetFrom(ANCHOR, 0.0031, 0.0271),
+    status: 'open',
+    matchedHelperId: null,
+    aiMatchReason: null,
+    createdAt: '2026-09-05T16:10:00Z',
+    requesterConfirmed: false,
+    helperConfirmed: false,
+    customLabel: 'Help arranging a janazah',
   },
 ];

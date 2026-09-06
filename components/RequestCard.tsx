@@ -5,7 +5,7 @@ import { StatusChip } from '@/components/ui/Chips';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { colors, fonts } from '@/constants/theme';
-import { categoryLabel, requestSnippet, statusLabel, statusTone } from '@/lib/format';
+import { requestSnippet, requestTitle, statusLabel, statusTone } from '@/lib/format';
 import type { HelpRequest } from '@/types/barakah';
 
 export function RequestCard({
@@ -21,7 +21,9 @@ export function RequestCard({
         <CategoryIcon category={request.category} />
         <View style={{ flex: 1 }}>
           <View style={styles.top}>
-            <Text style={styles.category}>{categoryLabel(request.category)}</Text>
+            <Text style={styles.category} numberOfLines={1}>
+              {requestTitle(request)}
+            </Text>
             <StatusChip label={statusLabel(request.status)} tone={statusTone(request.status)} />
           </View>
           <Text style={styles.snippet}>{requestSnippet(request)}</Text>
