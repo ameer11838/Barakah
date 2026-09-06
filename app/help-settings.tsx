@@ -5,13 +5,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GeometricBackdrop } from '@/components/GeometricBackdrop';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
-import { colors, fonts } from '@/constants/theme';
+import { fonts, type Palette } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 import { categoryLabel } from '@/lib/format';
 import { useBarakahStore } from '@/store/barakahStore';
 import { ALL_CATEGORIES, CATEGORY_MIN_TIER } from '@/types/barakah';
 
 export default function HelpSettingsScreen() {
   const insets = useSafeAreaInsets();
+  const { palette: c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const user = useBarakahStore((s) => s.getCurrentUser());
   const partners = useBarakahStore((s) => s.partners);
   const toggleCategoryOffered = useBarakahStore((s) => s.toggleCategoryOffered);
@@ -60,7 +63,7 @@ export default function HelpSettingsScreen() {
                   value={on && !locked}
                   disabled={locked}
                   onValueChange={() => toggleCategoryOffered(cat)}
-                  trackColor={{ true: colors.primary, false: '#c5d0cc' }}
+                  trackColor={{ true: c.primary, false: '#c5d0cc' }}
                 />
               </View>
             );
@@ -87,19 +90,20 @@ export default function HelpSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontFamily: fonts.bold, fontSize: 28, color: colors.text, letterSpacing: -0.5 },
-  close: { fontFamily: fonts.semibold, fontSize: 16, color: colors.primary },
-  section: { fontFamily: fonts.bold, fontSize: 16, color: colors.text, marginBottom: 8 },
-  meta: { fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, marginTop: 2 },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.borderSubtle,
-  },
-  toggleLabel: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.bg },
+    topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    title: { fontFamily: fonts.bold, fontSize: 28, color: c.text, letterSpacing: -0.5 },
+    close: { fontFamily: fonts.semibold, fontSize: 16, color: c.primary },
+    section: { fontFamily: fonts.bold, fontSize: 16, color: c.text, marginBottom: 8 },
+    meta: { fontFamily: fonts.regular, fontSize: 13, color: c.textMuted, marginTop: 2 },
+    toggleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.borderSubtle,
+    },
+    toggleLabel: { fontFamily: fonts.semibold, fontSize: 15, color: c.text },
+  });

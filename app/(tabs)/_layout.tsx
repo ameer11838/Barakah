@@ -3,15 +3,18 @@ import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import { Platform, StyleSheet, View } from 'react-native';
 
-import { colors, fonts } from '@/constants/theme';
+import { fonts } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
 
 export default function TabLayout() {
+  const { palette: c, scheme } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
+        tabBarActiveTintColor: c.primary,
+        tabBarInactiveTintColor: c.textMuted,
         tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 11 },
         tabBarStyle: {
           position: 'absolute',
@@ -20,11 +23,11 @@ export default function TabLayout() {
           bottom: 18,
           height: 64,
           borderRadius: 28,
-          backgroundColor: Platform.OS === 'web' ? colors.glassStrong : 'transparent',
+          backgroundColor: Platform.OS === 'web' ? c.glassStrong : 'transparent',
           borderTopWidth: 0,
           paddingBottom: 8,
           paddingTop: 8,
-          shadowColor: colors.shadow,
+          shadowColor: c.shadow,
           shadowOpacity: 0.2,
           shadowRadius: 16,
           shadowOffset: { width: 0, height: 8 },
@@ -33,9 +36,9 @@ export default function TabLayout() {
         },
         tabBarBackground: () =>
           Platform.OS === 'web' ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassStrong }]} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: c.glassStrong }]} />
           ) : (
-            <BlurView intensity={55} tint="light" style={StyleSheet.absoluteFill} />
+            <BlurView intensity={55} tint={scheme} style={StyleSheet.absoluteFill} />
           ),
       }}>
       <Tabs.Screen

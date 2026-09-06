@@ -13,7 +13,7 @@ import { View } from 'react-native';
 import 'react-native-reanimated';
 
 import { ToastHost } from '@/components/ToastHost';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
 import { ensureNotificationPermission } from '@/lib/notify';
 import { useBarakahStore } from '@/store/barakahStore';
 
@@ -29,6 +29,7 @@ export default function RootLayout() {
     DMSans_700Bold,
   });
   const setHydrated = useBarakahStore((s) => s.setHydrated);
+  const { palette: c } = useTheme();
 
   useEffect(() => {
     if (error) throw error;
@@ -50,9 +51,11 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      {/* 'auto' inverts the bar contents against the active scheme, so this
+          stays correct when the user flips the theme without a reload. */}
+      <StatusBar style="auto" />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="request" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="request/[id]" options={{ presentation: 'card', headerShown: false }} />

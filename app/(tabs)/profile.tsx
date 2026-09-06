@@ -8,13 +8,16 @@ import { GeometricBackdrop } from '@/components/GeometricBackdrop';
 import { Avatar, StatusChip } from '@/components/ui/Chips';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
-import { colors, fonts } from '@/constants/theme';
+import { fonts, radii, type Palette, type ThemePreference } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 import { emailConfigured, emailProviderName } from '@/lib/email';
 import { useBarakahStore } from '@/store/barakahStore';
 import { BADGE_LABELS } from '@/types/barakah';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  const { palette: c, scheme, preference, setPreference } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const user = useBarakahStore((s) => s.getCurrentUser());
   const resetDemo = useBarakahStore((s) => s.resetDemo);
   const updateProfile = useBarakahStore((s) => s.updateProfile);
@@ -62,7 +65,7 @@ export default function ProfileScreen() {
               <Ionicons
                 name={editing ? 'close' : 'create-outline'}
                 size={20}
-                color={colors.primary}
+                color={c.primary}
               />
             </Pressable>
           </View>
@@ -74,7 +77,7 @@ export default function ProfileScreen() {
                 value={name}
                 onChangeText={setName}
                 placeholder="Your name"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={c.textMuted}
                 style={styles.input}
               />
               <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Email</Text>
@@ -82,7 +85,7 @@ export default function ProfileScreen() {
                 value={email}
                 onChangeText={setEmail}
                 placeholder="you@example.com"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={c.textMuted}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 style={styles.input}
@@ -120,7 +123,7 @@ export default function ProfileScreen() {
             re-centres around you.
           </Text>
           <View style={styles.areaRow}>
-            <Ionicons name="location-outline" size={16} color={colors.primary} />
+            <Ionicons name="location-outline" size={16} color={c.primary} />
             <Text style={styles.areaLabel}>{community.label}</Text>
           </View>
           <PillButton
@@ -152,6 +155,44 @@ export default function ProfileScreen() {
         </GlassCard>
 
         <GlassCard>
+          <Text style={styles.section}>Appearance</Text>
+          <Text style={styles.meta}>
+            {preference === 'system'
+              ? `Following your device, currently ${scheme}.`
+              : `Always ${preference}, ignoring your device setting.`}
+          </Text>
+          <View style={styles.segment}>
+            {(['system', 'light', 'dark'] as ThemePreference[]).map((option) => (
+              <Pressable
+                key={option}
+                onPress={() => setPreference(option)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: preference === option }}
+                style={[styles.segmentItem, preference === option && styles.segmentItemOn]}>
+                <Ionicons
+                  name={
+                    option === 'system'
+                      ? 'phone-portrait-outline'
+                      : option === 'light'
+                        ? 'sunny-outline'
+                        : 'moon-outline'
+                  }
+                  size={15}
+                  color={preference === option ? c.onPrimary : c.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.segmentLabel,
+                    preference === option && styles.segmentLabelOn,
+                  ]}>
+                  {option === 'system' ? 'System' : option === 'light' ? 'Light' : 'Dark'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </GlassCard>
+
+        <GlassCard>
           <Text style={styles.section}>More</Text>
           <NavRow label="Help settings" hint="Categories & verification" href="/help-settings" />
           <NavRow label="Partners" hint="Local institutions & offers" href="/partners" />
@@ -173,6 +214,9 @@ function NavRow({
   hint: string;
   href: '/help-settings' | '/partners' | '/notifications';
 }) {
+  const { palette: c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable
       onPress={() => router.push(href)}
@@ -182,12 +226,14 @@ function NavRow({
         <Text style={styles.navLabel}>{label}</Text>
         <Text style={styles.meta}>{hint}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      <Ionicons name="chevron-forward" size={18} color={c.textMuted} />
     </Pressable>
   );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.stat}>
       <Text style={styles.statValue}>{value}</Text>
@@ -196,43 +242,64 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  title: { fontFamily: fonts.bold, fontSize: 28, color: colors.text, letterSpacing: -0.5 },
-  row: { flexDirection: 'row', gap: 14, alignItems: 'center' },
-  name: { fontFamily: fonts.bold, fontSize: 20, color: colors.text },
-  meta: { fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, marginTop: 2 },
-  stats: { flexDirection: 'row', marginTop: 16, gap: 8 },
-  stat: {
-    flex: 1,
-    backgroundColor: colors.primarySoft,
-    borderRadius: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  statValue: { fontFamily: fonts.bold, fontSize: 18, color: colors.primaryDark },
-  statLabel: { fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary, marginTop: 2 },
-  section: { fontFamily: fonts.bold, fontSize: 16, color: colors.text, marginBottom: 4 },
-  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.borderSubtle,
-  },
-  navLabel: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
-  fieldLabel: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted },
-  input: {
-    marginTop: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontFamily: fonts.regular,
-    fontSize: 15,
-    color: colors.text,
-  },
-  areaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 10 },
-  areaLabel: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.bg },
+    title: { fontFamily: fonts.bold, fontSize: 28, color: c.text, letterSpacing: -0.5 },
+    row: { flexDirection: 'row', gap: 14, alignItems: 'center' },
+    name: { fontFamily: fonts.bold, fontSize: 20, color: c.text },
+    meta: { fontFamily: fonts.regular, fontSize: 13, color: c.textMuted, marginTop: 2 },
+    segment: {
+      flexDirection: 'row',
+      gap: 6,
+      marginTop: 12,
+      padding: 4,
+      borderRadius: radii.pill,
+      backgroundColor: c.overlay,
+    },
+    segmentItem: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 9,
+      borderRadius: radii.pill,
+    },
+    segmentItemOn: { backgroundColor: c.primary },
+    segmentLabel: { fontFamily: fonts.medium, fontSize: 13, color: c.textSecondary },
+    segmentLabelOn: { fontFamily: fonts.semibold, color: c.onPrimary },
+    stats: { flexDirection: 'row', marginTop: 16, gap: 8 },
+    stat: {
+      flex: 1,
+      backgroundColor: c.primarySoft,
+      borderRadius: 16,
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    statValue: { fontFamily: fonts.bold, fontSize: 18, color: c.primaryDark },
+    statLabel: { fontFamily: fonts.medium, fontSize: 11, color: c.textSecondary, marginTop: 2 },
+    section: { fontFamily: fonts.bold, fontSize: 16, color: c.text, marginBottom: 4 },
+    badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+    navRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.borderSubtle,
+    },
+    navLabel: { fontFamily: fonts.semibold, fontSize: 15, color: c.text },
+    fieldLabel: { fontFamily: fonts.medium, fontSize: 12, color: c.textMuted },
+    input: {
+      marginTop: 4,
+      borderRadius: 12,
+      backgroundColor: c.inputBg,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontFamily: fonts.regular,
+      fontSize: 15,
+      color: c.text,
+    },
+    areaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 10 },
+    areaLabel: { fontFamily: fonts.semibold, fontSize: 15, color: c.text },
+  });

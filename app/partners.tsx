@@ -4,12 +4,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GeometricBackdrop } from '@/components/GeometricBackdrop';
 import { GlassCard } from '@/components/ui/GlassCard';
-import { colors, fonts } from '@/constants/theme';
+import { fonts, type Palette } from '@/constants/theme';
+import { useThemedStyles } from '@/lib/theme';
 import { categoryLabel } from '@/lib/format';
 import { useBarakahStore } from '@/store/barakahStore';
 
 export default function PartnersScreen() {
   const insets = useSafeAreaInsets();
+  const styles = useThemedStyles(makeStyles);
   const partners = useBarakahStore((s) => s.partners);
 
   return (
@@ -49,33 +51,34 @@ export default function PartnersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontFamily: fonts.bold, fontSize: 28, color: colors.text, letterSpacing: -0.5 },
-  close: { fontFamily: fonts.semibold, fontSize: 16, color: colors.primary },
-  sub: {
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 21,
-    marginBottom: 4,
-  },
-  eyebrow: {
-    fontFamily: fonts.semibold,
-    fontSize: 12,
-    color: colors.primaryDark,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 4,
-  },
-  name: { fontFamily: fonts.bold, fontSize: 18, color: colors.text },
-  meta: { fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, marginTop: 6 },
-  offer: {
-    fontFamily: fonts.medium,
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    marginTop: 10,
-  },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.bg },
+    topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    title: { fontFamily: fonts.bold, fontSize: 28, color: c.text, letterSpacing: -0.5 },
+    close: { fontFamily: fonts.semibold, fontSize: 16, color: c.primary },
+    sub: {
+      fontFamily: fonts.regular,
+      fontSize: 14,
+      color: c.textSecondary,
+      lineHeight: 21,
+      marginBottom: 4,
+    },
+    eyebrow: {
+      fontFamily: fonts.semibold,
+      fontSize: 12,
+      color: c.primaryDark,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+      marginBottom: 4,
+    },
+    name: { fontFamily: fonts.bold, fontSize: 18, color: c.text },
+    meta: { fontFamily: fonts.regular, fontSize: 13, color: c.textMuted, marginTop: 6 },
+    offer: {
+      fontFamily: fonts.medium,
+      fontSize: 14,
+      color: c.textSecondary,
+      lineHeight: 20,
+      marginTop: 10,
+    },
+  });

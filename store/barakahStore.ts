@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import { type ThemePreference } from '@/constants/theme';
 import { DEFAULT_COMMUNITY, rehome, type Community } from '@/lib/community';
 import { currentLocation, describeLocation, geocodePlace } from '@/lib/geocode';
 import { pickAutoAccept, rankHelpers } from '@/lib/matching';
@@ -27,7 +28,7 @@ import type {
 import { CATEGORY_MIN_TIER, POINTS_EXCLUDED, categoryTitle } from '@/types/barakah';
 
 const AUTO_ACCEPT_MS = 2200;
-const POINTS_PER_HELP = 25;
+export const POINTS_PER_HELP = 25;
 const MAX_NOTIFICATIONS = 60;
 
 type Toast = { id: string; message: string } | null;
@@ -42,8 +43,11 @@ interface BarakahState {
   ratings: Rating[];
   notifications: AppNotification[];
   toast: Toast;
+  /** Light/dark choice. Survives resetDemo — it is a preference, not demo data. */
+  themePreference: ThemePreference;
 
   setHydrated: (v: boolean) => void;
+  setThemePreference: (preference: ThemePreference) => void;
   getCurrentUser: () => User;
   getUser: (id: string) => User | undefined;
   resetDemo: () => void;
@@ -140,8 +144,11 @@ export const useBarakahStore = create<BarakahState>()(
         ratings: [],
         notifications: [],
         toast: null,
+        themePreference: 'system',
 
         setHydrated: (v) => set({ hydrated: v }),
+
+        setThemePreference: (themePreference) => set({ themePreference }),
 
         getCurrentUser: () => {
           const { users, currentUserId } = get();
@@ -591,6 +598,7 @@ export const useBarakahStore = create<BarakahState>()(
         requests: s.requests,
         ratings: s.ratings,
         notifications: s.notifications,
+        themePreference: s.themePreference,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);

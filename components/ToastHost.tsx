@@ -1,12 +1,14 @@
 import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts, radii } from '@/constants/theme';
+import { fonts, radii, type Palette } from '@/constants/theme';
+import { useThemedStyles } from '@/lib/theme';
 import { useBarakahStore } from '@/store/barakahStore';
 
 export function ToastHost() {
   const toast = useBarakahStore((s) => s.toast);
   const setToast = useBarakahStore((s) => s.setToast);
+  const styles = useThemedStyles(makeStyles);
 
   useEffect(() => {
     if (!toast) return;
@@ -25,7 +27,8 @@ export function ToastHost() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
   wrap: {
     position: 'absolute',
     left: 16,
@@ -35,14 +38,14 @@ const styles = StyleSheet.create({
     zIndex: 50,
   },
   bubble: {
-    backgroundColor: colors.text,
+    backgroundColor: c.inverseSurface,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: radii.pill,
     maxWidth: 360,
   },
   text: {
-    color: '#fff',
+    color: c.onInverseSurface,
     fontFamily: fonts.medium,
     fontSize: 14,
     textAlign: 'center',

@@ -8,7 +8,8 @@ import { GeometricBackdrop } from '@/components/GeometricBackdrop';
 import { StatusChip } from '@/components/ui/Chips';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
-import { colors, fonts, radii } from '@/constants/theme';
+import { fonts, radii, type Palette } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 import { emailConfigured, emailProviderName } from '@/lib/email';
 import { useBarakahStore } from '@/store/barakahStore';
 import type { AppNotification, NotificationKind } from '@/types/barakah';
@@ -41,6 +42,8 @@ function timeAgo(iso: string): string {
 
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
+  const { palette: c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const currentUserId = useBarakahStore((s) => s.currentUserId);
   const notifications = useBarakahStore((s) => s.notifications);
   const markRead = useBarakahStore((s) => s.markNotificationsRead);
@@ -99,6 +102,9 @@ export default function NotificationsScreen() {
 }
 
 function NotificationRow({ notification: n }: { notification: AppNotification }) {
+  const { palette: c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <GlassCard>
       <Pressable
@@ -106,7 +112,7 @@ function NotificationRow({ notification: n }: { notification: AppNotification })
         disabled={!n.requestId}>
         <View style={styles.row}>
           <View style={styles.iconBox}>
-            <Ionicons name={KIND_ICON[n.kind]} size={18} color={colors.primaryDark} />
+            <Ionicons name={KIND_ICON[n.kind]} size={18} color={c.primaryDark} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.rowTitle}>{n.title}</Text>
@@ -135,43 +141,44 @@ function NotificationRow({ notification: n }: { notification: AppNotification })
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontFamily: fonts.bold, fontSize: 28, color: colors.text, letterSpacing: -0.5 },
-  close: { fontFamily: fonts.semibold, fontSize: 16, color: colors.primary },
-  section: { fontFamily: fonts.bold, fontSize: 16, color: colors.text },
-  meta: {
-    fontFamily: fonts.regular,
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  row: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  iconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: radii.sm,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rowTitle: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
-  rowBody: {
-    fontFamily: fonts.regular,
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 3,
-    lineHeight: 18,
-  },
-  time: { fontFamily: fonts.medium, fontSize: 11, color: colors.textMuted, marginTop: 6 },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
-    marginTop: 6,
-  },
-  channels: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.bg },
+    topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    title: { fontFamily: fonts.bold, fontSize: 28, color: c.text, letterSpacing: -0.5 },
+    close: { fontFamily: fonts.semibold, fontSize: 16, color: c.primary },
+    section: { fontFamily: fonts.bold, fontSize: 16, color: c.text },
+    meta: {
+      fontFamily: fonts.regular,
+      fontSize: 13,
+      color: c.textSecondary,
+      marginTop: 4,
+      lineHeight: 18,
+    },
+    row: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+    iconBox: {
+      width: 34,
+      height: 34,
+      borderRadius: radii.sm,
+      backgroundColor: c.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    rowTitle: { fontFamily: fonts.semibold, fontSize: 15, color: c.text },
+    rowBody: {
+      fontFamily: fonts.regular,
+      fontSize: 13,
+      color: c.textSecondary,
+      marginTop: 3,
+      lineHeight: 18,
+    },
+    time: { fontFamily: fonts.medium, fontSize: 11, color: c.textMuted, marginTop: 6 },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: c.primary,
+      marginTop: 6,
+    },
+    channels: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  });

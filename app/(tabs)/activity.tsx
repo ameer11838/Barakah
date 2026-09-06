@@ -5,13 +5,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GeometricBackdrop } from '@/components/GeometricBackdrop';
 import { RequestCard } from '@/components/RequestCard';
-import { colors, fonts } from '@/constants/theme';
+import { fonts, type Palette } from '@/constants/theme';
+import { useThemedStyles } from '@/lib/theme';
 import { useBarakahStore } from '@/store/barakahStore';
 
 type TabKey = 'requests' | 'helps';
 
 export default function ActivityScreen() {
   const insets = useSafeAreaInsets();
+  const styles = useThemedStyles(makeStyles);
   const [tab, setTab] = useState<TabKey>('requests');
   const currentUserId = useBarakahStore((s) => s.currentUserId);
   const requests = useBarakahStore((s) => s.requests);
@@ -69,6 +71,8 @@ function Seg({
   active: boolean;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable onPress={onPress} style={[styles.segBtn, active && styles.segActive]}>
       <Text style={[styles.segText, active && styles.segTextActive]}>{label}</Text>
@@ -76,27 +80,28 @@ function Seg({
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  title: { fontFamily: fonts.bold, fontSize: 28, color: colors.text, letterSpacing: -0.5 },
-  sub: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginBottom: 4 },
-  segment: {
-    flexDirection: 'row',
-    backgroundColor: colors.glassStrong,
-    borderRadius: 999,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  segBtn: { flex: 1, paddingVertical: 10, borderRadius: 999, alignItems: 'center' },
-  segActive: { backgroundColor: colors.primary },
-  segText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.textSecondary },
-  segTextActive: { color: colors.onPrimary },
-  empty: {
-    fontFamily: fonts.medium,
-    fontSize: 14,
-    color: colors.textMuted,
-    marginTop: 24,
-    lineHeight: 20,
-  },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.bg },
+    title: { fontFamily: fonts.bold, fontSize: 28, color: c.text, letterSpacing: -0.5 },
+    sub: { fontFamily: fonts.regular, fontSize: 14, color: c.textSecondary, marginBottom: 4 },
+    segment: {
+      flexDirection: 'row',
+      backgroundColor: c.glassStrong,
+      borderRadius: 999,
+      padding: 4,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    segBtn: { flex: 1, paddingVertical: 10, borderRadius: 999, alignItems: 'center' },
+    segActive: { backgroundColor: c.primary },
+    segText: { fontFamily: fonts.semibold, fontSize: 13, color: c.textSecondary },
+    segTextActive: { color: c.onPrimary },
+    empty: {
+      fontFamily: fonts.medium,
+      fontSize: 14,
+      color: c.textMuted,
+      marginTop: 24,
+      lineHeight: 20,
+    },
+  });

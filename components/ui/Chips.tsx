@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts, radii } from '@/constants/theme';
+import { fonts, radii, type Palette } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 export function Avatar({ name, color, size = 44 }: { name: string; color: string; size?: number }) {
   const initials = name
@@ -20,7 +21,11 @@ export function Avatar({ name, color, size = 44 }: { name: string; color: string
         alignItems: 'center',
         justifyContent: 'center',
       }}>
-      <Text style={{ color: '#fff', fontFamily: fonts.bold, fontSize: size * 0.34 }}>{initials}</Text>
+      {/* The avatar colour is a saturated brand hue in both schemes, so the
+          initials stay white rather than following the palette. */}
+      <Text style={{ color: '#fff', fontFamily: fonts.bold, fontSize: size * 0.34 }}>
+        {initials}
+      </Text>
     </View>
   );
 }
@@ -32,22 +37,25 @@ export function StatusChip({
   label: string;
   tone?: 'neutral' | 'success' | 'primary' | 'warning';
 }) {
+  const { palette: c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
   const bg =
     tone === 'success'
-      ? colors.successSoft
+      ? c.successSoft
       : tone === 'primary'
-        ? colors.primarySoft
+        ? c.primarySoft
         : tone === 'warning'
-          ? colors.warningSoft
-          : colors.overlay;
+          ? c.warningSoft
+          : c.overlay;
   const fg =
     tone === 'success'
-      ? colors.success
+      ? c.success
       : tone === 'primary'
-        ? colors.primaryDark
+        ? c.primaryDark
         : tone === 'warning'
-          ? colors.warning
-          : colors.textSecondary;
+          ? c.warning
+          : c.textSecondary;
 
   return (
     <View style={[styles.chip, { backgroundColor: bg }]}>
@@ -56,7 +64,8 @@ export function StatusChip({
   );
 }
 
-const styles = StyleSheet.create({
-  chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radii.pill },
-  chipText: { fontFamily: fonts.medium, fontSize: 12 },
-});
+const makeStyles = (_c: Palette) =>
+  StyleSheet.create({
+    chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radii.pill },
+    chipText: { fontFamily: fonts.medium, fontSize: 12 },
+  });

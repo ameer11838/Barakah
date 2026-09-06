@@ -1,21 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GeometricBackdrop } from '@/components/GeometricBackdrop';
+import { Confetti } from '@/components/motion/Confetti';
+import { Reveal, STAGGER_MS } from '@/components/motion/Reveal';
 import { Avatar, StatusChip } from '@/components/ui/Chips';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PillButton } from '@/components/ui/PillButton';
-import { colors, fonts } from '@/constants/theme';
+import { fonts, type Palette } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 import { formatConfidence, requestTitle, statusLabel, statusTone } from '@/lib/format';
-import { useBarakahStore } from '@/store/barakahStore';
+import { POINTS_PER_HELP, useBarakahStore } from '@/store/barakahStore';
+import { POINTS_EXCLUDED } from '@/types/barakah';
 
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const { palette: c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const request = useBarakahStore((s) => s.requests.find((r) => r.id === id));
   const currentUserId = useBarakahStore((s) => s.currentUserId);
   const getUser = useBarakahStore((s) => s.getUser);
@@ -30,6 +36,23 @@ export default function RequestDetailScreen() {
 
   const [stars, setStars] = useState(5);
   const [comment, setComment] = useState('');
+  const [celebrate, setCelebrate] = useState(false);
+
+  /**
+   * Fire the celebration on the transition into 'completed', not on the state
+   * itself — otherwise re-opening a finished request replays the confetti and
+   * the moment stops meaning anything. Tier 3 categories earn no points, so
+   * they get the confirmation without the fanfare.
+   */
+  const earnsPoints = request ? !POINTS_EXCLUDED.includes(request.category) : false;
+  const prevStatus = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const before = prevStatus.current;
+    prevStatus.current = request?.status;
+    if (before && before !== 'completed' && request?.status === 'completed' && earnsPoints) {
+      setCelebrate(true);
+    }
+  }, [request?.status, earnsPoints]);
 
   if (!request) {
     return (
@@ -122,7 +145,7 @@ export default function RequestDetailScreen() {
                   ) : helper.ratingAvg != null ? (
                     <View style={styles.ratingInline}>
                       <Text style={styles.metaInline}> · {helper.ratingAvg.toFixed(1)} </Text>
-                      <Ionicons name="star" size={12} color={colors.warning} />
+                      <Ionicons name="star" size={12} color={c.warning} />
                     </View>
                   ) : null}
                 </View>
@@ -163,6 +186,22 @@ export default function RequestDetailScreen() {
           </GlassCard>
         ) : null}
 
+        {request.status === 'completed' && earnsPoints ? (
+          <Reveal delay={STAGGER_MS} distance={16}>
+            <GlassCard strong>
+              <View style={styles.row}>
+                <View style={styles.pointsBadge}>
+                  <Ionicons name="sparkles" size={18} color={c.onPrimary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>+{POINTS_PER_HELP} points</Text>
+                  <Text style={styles.metaInline}>Both sides confirmed the help.</Text>
+                </View>
+              </View>
+            </GlassCard>
+          </Reveal>
+        ) : null}
+
         {request.status === 'completed' && (isRequester || isHelper) && !alreadyRated ? (
           <GlassCard>
             <Text style={styles.section}>Rate</Text>
@@ -172,7 +211,7 @@ export default function RequestDetailScreen() {
                   <Ionicons
                     name={n <= stars ? 'star' : 'star-outline'}
                     size={28}
-                    color={n <= stars ? colors.warning : colors.textMuted}
+                    color={n <= stars ? c.warning : c.textMuted}
                   />
                 </Pressable>
               ))}
@@ -181,7 +220,7 @@ export default function RequestDetailScreen() {
               value={comment}
               onChangeText={setComment}
               placeholder="Optional short comment"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={c.textMuted}
               style={styles.comment}
             />
             <PillButton
@@ -195,45 +234,55 @@ export default function RequestDetailScreen() {
           </GlassCard>
         ) : null}
       </ScrollView>
+      {celebrate ? <Confetti onDone={() => setCelebrate(false)} /> : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontFamily: fonts.bold, fontSize: 28, color: colors.text, letterSpacing: -0.5 },
-  close: { fontFamily: fonts.semibold, fontSize: 16, color: colors.primary },
-  row: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  cardTitle: { fontFamily: fonts.bold, fontSize: 18, color: colors.text },
-  body: {
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 21,
-    marginTop: 10,
-  },
-  meta: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted, marginTop: 8 },
-  helperMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' },
-  metaInline: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted },
-  ratingInline: { flexDirection: 'row', alignItems: 'center' },
-  section: { fontFamily: fonts.bold, fontSize: 16, color: colors.text },
-  reason: {
-    fontFamily: fonts.medium,
-    fontSize: 13,
-    color: colors.primaryDark,
-    marginTop: 10,
-    lineHeight: 18,
-  },
-  stars: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  comment: {
-    marginTop: 12,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.75)',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontFamily: fonts.regular,
-    fontSize: 15,
-    color: colors.text,
-  },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.bg },
+    topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    title: { fontFamily: fonts.bold, fontSize: 28, color: c.text, letterSpacing: -0.5 },
+    close: { fontFamily: fonts.semibold, fontSize: 16, color: c.primary },
+    row: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+    cardTitle: { fontFamily: fonts.bold, fontSize: 18, color: c.text },
+    body: {
+      fontFamily: fonts.regular,
+      fontSize: 14,
+      color: c.textSecondary,
+      lineHeight: 21,
+      marginTop: 10,
+    },
+    meta: { fontFamily: fonts.medium, fontSize: 12, color: c.textMuted, marginTop: 8 },
+    helperMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' },
+    metaInline: { fontFamily: fonts.medium, fontSize: 12, color: c.textMuted },
+    ratingInline: { flexDirection: 'row', alignItems: 'center' },
+    section: { fontFamily: fonts.bold, fontSize: 16, color: c.text },
+    reason: {
+      fontFamily: fonts.medium,
+      fontSize: 13,
+      color: c.primaryDark,
+      marginTop: 10,
+      lineHeight: 18,
+    },
+    pointsBadge: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: c.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    stars: { flexDirection: 'row', gap: 8, marginTop: 10 },
+    comment: {
+      marginTop: 12,
+      borderRadius: 14,
+      backgroundColor: c.inputBg,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontFamily: fonts.regular,
+      fontSize: 15,
+      color: c.text,
+    },
+  });
